@@ -25,7 +25,7 @@ class potential:
     """
     #TODO: Incompressability constraints belong to the potential as an extension of 'normal' elasticity. How to include?
 
-    def __init__(self, fcns, vars, constraints = None **kwargs):
+    def __init__(self, fcn, vars, grad=None, hess=None,  constraints = None):
         # variables - dictonary of {variable type: sympy variable}
         # fcns      - a list of potentials with arguments: variables
 
@@ -38,7 +38,7 @@ class potential:
             fcn(x): a point to a function of (x)
             grad: gradient of fcn wrt x
             hess: hessian of fcn wrt x
-            phase_id: An optional index of the phase
+            vars: an ordered list / dictionary of variables
             **kwargs: any additional fiels to be kept
         """
 
@@ -48,12 +48,15 @@ class potential:
         # Need to move away from sympy reliance. Causing problems with: vectorized evaluation / plotting
         # Keep for forming, then remove.
 
+
         self.fcn  = fcn
         self.vars = vars
         self.grad = grad
         self.hess = hess
         self.constraints = constraints
-        self.additional_fields = kwargs
+        #self.additional_fields = kwargs
+
+    #**Method to evaluate gradient with certain components based on vars**
 
     # def rename_vars(self, suffix):
     #     # Add 'suffix' to all variables

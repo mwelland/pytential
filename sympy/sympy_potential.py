@@ -1,6 +1,7 @@
 from sympy import pprint, Matrix, lambdify, Expr, hessian
 from .. import potential
 
+
 class sympy_potential(potential):
     """
     Make a potential from a sympy expression
@@ -18,43 +19,45 @@ class sympy_potential(potential):
     """
     #TODO: Incompressability constraints belong to the potential as an extension of 'normal' elasticity. How to include?
 
-    def __init__(self, fcn_sym, vars= None, **kwargs):
+    def __init__(self, fcn_sym, vars= None):
 
         assert isinstance(fcn_sym, Expr), "Function is not a sympy expression. Use 'potential'"
 
         # Automatically populate vars, grad, and hess
         if vars is None:
             vars =  [l.name for l in fcn_sym.free_symbols]
+        print(vars)
 
         # if phase_id:
         #     vars_old = vars
         #     vars = [v+'_'+ phase_id for v in vars_old]
         #     fcn_sym = fcn_sym.subs(zip(vars_old, vars))
+        print(Matrix([fcn_sym]).jacobian(vars))
 
-        fcns_sym = [fcn_sym, 
-                    Matrix([fcn_sym]).jacobian(vars).simplify().tolist()[0], 
-                    hessian(fcn_sym, vars).simplify(),
-                    ] 
+        # fcns_sym = [fcn_sym, 
+        #             Matrix([fcn_sym]).jacobian(vars).tolist()[0], 
+        #             hessian(fcn_sym, vars).simplify(),
+        #             ] 
         
-        # grad_sym = Matrix([fcn_sym]).jacobian(vars)
-        # grad_sym.simplify()
+        grad_sym = Matrix([fcn_sym]).jacobian(vars)
+        grad_sym.simplify()
         
-        # hess_sym = hessian(fcn_sym, vars)
-        # hess_sym.simplify()
+        hess_sym = hessian(fcn_sym, vars)
+        hess_sym.simplify()
 
-        fcns = [lambdify([vars], f, modules="scipy") for f in fcns_sym]
+        #fcn, grad, hess = [lambdify([vars], f, modules="scipy") for f in [fcn_sym, grad_sym, hess_sym]]
 
-        # fcn = lambdify([vars], fcn_sym, modules="scipy")     
-        # grad = lambdify([vars], grad_sym.tolist()[0], modules="scipy")
-        # hess = lambdify([vars], hess_sym, modules="scipy")
+        fcn = lambdify(vars, fcn_sym, modules="scipy")     
+        grad = lambdify(vars, grad_sym.tolist()[0], modules="scipy")
+        hess = lambdify(vars, hess_sym, modules="scipy")
 
         # Create a 'potential' with the calculated functions
-        super().__init__(fcn, vars, grad=grad, hess=hess, *kwargs)
+        super().__init__(fcn, vars, grad=grad, hess=hess)
 
-        self.fcns = fcns
-        # self.fcn_sym = fcn_sym
-        # self.grad_sym = grad_sym
-        # self.hess_sym = hess_sym
+        # self.fcns = fcns
+        self.fcn_sym = fcn_sym
+        self.grad_sym = grad_sym
+        self.hess_sym = hess_sym
 
 
     def __str__(self):

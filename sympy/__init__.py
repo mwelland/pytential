@@ -1,0 +1,1 @@
+from .sympy_potential import sympy_potential
