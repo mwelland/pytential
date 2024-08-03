@@ -1,6 +1,8 @@
 from sympy import Matrix, symbols, ln
 
 def function_from_properties(properties, T = None):
+    #Returns a sympy function consistent with the properties dictionary
+    
     assert type(properties) is dict, "properties must be a dictionary"
 
     if T is None:

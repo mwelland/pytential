@@ -1,4 +1,4 @@
-from sympy import pprint, Matrix, lambdify, Expr, hessian
+from sympy import pprint, Matrix, lambdify, Expr, hessian, symbols
 from .function_from_properties import function_from_properties
 #from .operations import append_to_sympy_variables
 from .. import pytential
@@ -20,7 +20,7 @@ class sympy_pytential(pytential):
     """
     def __init__(self, fcn_sym, vars= None, constraints_sym = []):
 
-        assert isinstance(fcn_sym, Expr), "Function is not a sympy expression. Use 'pytential'"
+        assert isinstance(fcn_sym, Expr), "Function is not a sympy expression." 
 
         # Automatically populate vars, grad, and hess
         if vars is None:
@@ -44,15 +44,27 @@ class sympy_pytential(pytential):
 
         super().__init__(fcn, vars, grad=grad, hess=hess, differential_structure=differential_structure, constraints = constraints)
 
-        #TODO: Would this be faster if I 
-
         # self.fcns = fcns
         self.fcn_sym = fcn_sym
         self.grad_sym = grad_sym
         self.hess_sym = hess_sym
         self.constraints_sym = constraints_sym
 
-
+    @classmethod
+    def from_properties(cls, properties, suffix = None):
+        """
+        Create a sympy_pytential from a dictionary of properties
+        """
+        f, constraints = function_from_properties(properties, T = 300)
+        if suffix is not None:
+            vars = f.free_symbols
+            #TODO: function from properties should return the list of variables, and this line should use it directly, incase some variables exist in constraints but not f
+            subs_dict = {var: symbols(str(var) + suffix) for var in vars}
+            
+            f = f.subs(subs_dict)
+            constraints = constraints.subs(subs_dict)
+        return sympy_pytential(f, constraints_sym=[constraints])
+        
     def __str__(self):
         """
         Pretty print the pytential and its gradients as sympy expressions - looks funny in jupyter?
@@ -69,11 +81,40 @@ class sympy_pytential(pytential):
         pprint(self.constraints_sym)
 
         return ''
+    
+    def __add__(self, other):
+        """
+        Adds two sympy pytentials
+        """
+        return sympy_pytential(self.fcn_sym + other.fcn_sym, constraints_sym = self.constraints_sym + other.constraints_sym)
+    
+    def rename_variables(self, variable_substitutions):
+        """
+        Renames variables in a sympy pytential according to the dictionary var_swap
 
-def sympy_pytential_from_properties(properties, suffix= None):
-    f, constraints = function_from_properties(properties, T = 300)
-    pyt = sympy_pytential(f, constraints_sym=[constraints])
-    # if suffix is not None:
-    #     pyt = append_to_sympy_variables(pytential, suffix)
-    return pyt
+        Args:
+            variable_substitutions: a list of variable substitutions pairs
+        """
+        return self.__init__(self.fcn_sym.subs(variable_substitutions),  constraints_sym = [c.subs(variable_substitutions) for c in self.constraints_sym])
 
+    def append_to_variables(self, suffix, variables_to_append=None):
+        """
+        Renames variables in a sympy pytential by appending a suffix
+
+        Args:
+            variables_to_append: a list of variable to append the suffix to
+        """
+
+        def warn_if_not_true(condition, message):
+            if not condition:
+                warnings.warn(message, UserWarning)
+
+        if variables_to_append is None:
+            variables_to_append = self.vars
+        else:
+            checked_variables = all(v in pytential.vars for v in variables_to_append)
+            warn_if_not_true(checked_variables, "Not all variables are in the pytential")
+
+        appended_variables = symbols(' '.join([str(v)+suffix for v in variables_to_append]))
+        variables_to_rename = dict(zip(variables_to_append, appended_variables))
+        return self.rename_variables(variables_to_rename)
