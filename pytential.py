@@ -9,9 +9,9 @@ Base class of the pYtential package.
 # Facilitate finding norm of hessian (for preconditioning), eigenvalues, and nullspace. Operates on Hessian
 # Material creation should be separate function. Not redone by all processes. Centrallized process in case of distributed needs?
 
-class potential:
+class pytential:
     """
-    Interface to a thermodynamic potential
+    Interface to a thermodynamic pytential
 
     A potential has methods for the potential, gradient, and Hessian
 
@@ -25,14 +25,12 @@ class potential:
     """
     #TODO: Incompressability constraints belong to the potential as an extension of 'normal' elasticity. How to include?
 
-    def __init__(self, fcn, vars, grad=None, hess=None,  constraints = None):
+    def __init__(self, fcn, vars, grad=None, hess=None, differential_structure = None, constraints = None):
         # variables - dictonary of {variable type: sympy variable}
         # fcns      - a list of potentials with arguments: variables
 
         """
-        Class for a 'potential'
-
-        Interface to a 'potential'. Provides an interface to evaluation.
+        Class for a 'pytential'
 
         Args:
             fcn(x): a point to a function of (x)
@@ -45,27 +43,34 @@ class potential:
         # Flag or test for homogeneity? Test would be useful, flag not necessary unless there is value.
         # Can I automatically determine a set of homogenous variables / coordinates?
 
-        # Need to move away from sympy reliance. Causing problems with: vectorized evaluation / plotting
-        # Keep for forming, then remove.
-
-
         self.fcn  = fcn
         self.vars = vars
         self.grad = grad
         self.hess = hess
+
+        if self.differential_structure is None:
+            pass
+            #TODO: Complete this! return self.differential_structure( *args, **kwargs)
+        else:
+            self.differential_structure = differential_structure
+
         self.constraints = constraints
         #self.additional_fields = kwargs
 
+        
+
+    def field(self, *args, **kwargs):
+        return self.fcn(*args, **kwargs)
+    
+    def gradient(self, *args, **kwargs):
+        return self.grad( *args, **kwargs)
+    
+    def hessian(self, *args, **kwargs):
+        return self.hess(*args, **kwargs) 
+    
+    def differential_structure(self,  *args, **kwargs):
+        return self.differential_structure(*args, **kwargs)
+    
     #**Method to evaluate gradient with certain components based on vars**
 
-    # def rename_vars(self, suffix):
-    #     # Add 'suffix' to all variables
-    #     #vars_part = None
-    #     self.vars = [v+'_'+suffix for v in self.vars]
 
-# def write_to_file(file, file_name):
-#     import dill as pickle
-#     if not file_name.endswith('.pkl'):
-#         file_name += '.pkl'
-#     with open(file_name, 'wb') as output:
-#          pickle.dump(self, output)
