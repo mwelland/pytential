@@ -23,9 +23,7 @@ class pytential:
 
     Future: Arguments may be any complete sets of conjugate variables
     """
-    #TODO: Incompressability constraints belong to the potential as an extension of 'normal' elasticity. How to include?
-
-    def __init__(self, fcn, vars, grad=None, hess=None, differential_structure = None, constraints = None):
+    def __init__(self, fcn, vars, grad=None, hess=None, differential_structure = None, constraints = []):
         # variables - dictonary of {variable type: sympy variable}
         # fcns      - a list of potentials with arguments: variables
 
@@ -56,8 +54,11 @@ class pytential:
 
         self.constraints = constraints
         #self.additional_fields = kwargs
-
-        
+    
+    #TODO: #9 in dictionary of args, accept wildcards. E.g.: c0*
+    def __call__(self, *args, **kwargs):
+        # Shorthand to field call
+        return self.fcn(*args, **kwargs)
 
     def field(self, *args, **kwargs):
         return self.fcn(*args, **kwargs)
@@ -73,4 +74,24 @@ class pytential:
     
     #**Method to evaluate gradient with certain components based on vars**
 
-
+    def __str__(self):
+        """
+        Pretty print the details of the pytential
+        """
+        return 'Pytential of type ' + str(type(self)) + '\n' + \
+            'Variables: ' + str(self.vars) + '\n' + \
+            'Potential: ' + str(self.fcn) + '\n' + \
+            'Gradient: ' + str(self.grad) + '\n' + \
+            'Hessian: ' + str(self.hess) + '\n' + \
+            'Constraints: ' + str(self.constraints) + '\n'
+        # print('\nPytential of type ' + str(type(self)))
+        # print('\nVariables')
+        # print(self.vars)
+        # print('\nPotential')
+        # pprint(self.fcn_sym)
+        # print('\nGradient')
+        # pprint(self.grad_sym)
+        # print('\nHessian')
+        # pprint(self.hess_sym)
+        # print('\nConstraints')
+        # pprint(self.constraints_sym)    

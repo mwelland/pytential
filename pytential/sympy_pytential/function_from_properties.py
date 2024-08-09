@@ -1,12 +1,11 @@
 from sympy import Matrix, symbols, ln
 
-def function_from_properties(properties, T = None):
+def function_from_properties(properties):
     #Returns a sympy function consistent with the properties dictionary
     
     assert type(properties) is dict, "properties must be a dictionary"
 
-    if T is None:
-        T = symbols('T')
+    T, V = symbols('T V')
 
     n = len(properties['mu0'])
     keys = properties.keys()
@@ -23,7 +22,7 @@ def function_from_properties(properties, T = None):
         properties['vi'] = [properties['vi']]*n
     
     fcn = 0
-    constraints = None
+    constraints = []
     
     
     cs = Matrix(symbols('c:{}'.format(n)))
@@ -32,22 +31,25 @@ def function_from_properties(properties, T = None):
 
     # If 'kappa' is defined, assume hyperelastic. Else, lattice constraints.
     if 'kappa' in keys:
-        V = symbols('V')  
         fcn += hyperelastic_term(
             kappa = properties['kappa'], 
             vi = properties['vi'], 
             cs = cs, 
             V = V)
     else:
-        constraints = cs.dot(properties['vi'])-properties['rho']
+        constraints += [cs.dot(properties['vi'])-V]
     #TODO: #5 option in sympyt funciton to not include lattice constraint
     #TODO #7 Output directly usable in sympy_pytential
     return fcn, constraints
 
 
-    
-
-
+def sum_prefixed_variables(vars, prefix): 
+    #Forms the constraint for an extensive variable by matching any varialbes
+    # in pyt. Useful to sum variables with a suffix.   
+    def spfx(vars, prefix): 
+        partial_variables = [s for s in vars if s.startswith(prefix)]    
+        return sum(symbols(partial_variables)-symbols(prefix))
+    return [spfx(vars, p) for p in prefix]
 
 
 def ideal_mixing_term(cs, mu0, T = 300, rho = 1):

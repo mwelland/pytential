@@ -10,6 +10,9 @@ class pyt_minimizer:
         if default_initial_guess is None:
             default_initial_guess = .5*np.ones(len(pyt.vars))
 
+        #The minimizer expects a vector of varables so we define helper functions for the objective and constraints. 
+        #IDEA: maybe pytential functions can accept a vector directly and distribute according to vars?
+
         fcn_lmbda = lambda x: pyt.fcn(*x)
 
         #If there are no constraints specified, use all the constraints in pyt
@@ -25,18 +28,25 @@ class pyt_minimizer:
         self.m = m
         self.x0_default = default_initial_guess
 
-    def __call__(self, y, x0=None):
-        if x0 is None: 
-            x0 = self.x0_default
+    def find_min(self,y, x0=None):
+        def min(y, x0=None):
+            if x0 is None: 
+                x0 = self.x0_default
 
-        ans = minimize(self.fcn, x0,
-            constraints= self.pyt_const +
-            [{'type': 'eq', 'fun': lambda x: self.m.T.dot(x) - y}],
-            method="SLSQP")
-        assert ans.success, "Minimization failed at y = " + str(y)
-        return ans
+            ans = minimize(self.fcn, x0,
+                constraints= self.pyt_const +
+                [{'type': 'eq', 'fun': lambda x: self.m.T.dot(x) - y}],
+                method="SLSQP")
+            assert ans.success, "Minimization failed at y = " + str(y)
+            return ans.fun
         
+        from numpy import vectorize
+        return vectorize(min, excluded='x0')(y,x0)[0]
 
+    def __call__(self, y, x0=None):
+        #[self.find_min(yi, x0) for yi in y]
+        return self.find_min(y, x0)
+        
 
 class min_pytential(pytential):
     """
@@ -57,7 +67,13 @@ class min_pytential(pytential):
         min = pyt_minimizer(pyt, vars_out, constraints = constraints, default_initial_guess = default_initial_guess)
 
         #TODO: #8 This isn't implemented well. I should return the full derivative_structure from the minimizer, filling in where necessary. Also include the minimum values to be passed to the next y.
-        fcn = lambda y: min(y).fun
+  
+        # Working but needs revision. Issue with passing the min funciton into the eval / exec which would be cleaner.
+        lambda_args = ", ".join(vars_out)
+        lambda_body = f"lambda func: lambda {lambda_args}: func([{lambda_args}])"
+        f = eval(lambda_body)
+        fcn = f(min.find_min)
+
         super().__init__(fcn, vars_out)
         
         #def find_min(y, x0=None):

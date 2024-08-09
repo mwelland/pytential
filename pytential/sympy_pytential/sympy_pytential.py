@@ -24,7 +24,9 @@ class sympy_pytential(pytential):
 
         # Automatically populate vars, grad, and hess
         if vars is None:
-            vars =  [l.name for l in fcn_sym.free_symbols]
+            vars_fcn =  [l.name for l in fcn_sym.free_symbols]
+            vars_constraints = [l.name for c in constraints_sym for l in c.free_symbols]
+            vars = list(set(vars_fcn + vars_constraints))
       
         grad_sym = Matrix([fcn_sym]).jacobian(vars)
         grad_sym.simplify()
@@ -51,19 +53,22 @@ class sympy_pytential(pytential):
         self.constraints_sym = constraints_sym
 
     @classmethod
-    def from_properties(cls, properties, suffix = None):
+    def from_properties(cls, properties, state = None, suffix = None):
         """
         Create a sympy_pytential from a dictionary of properties
         """
-        f, constraints = function_from_properties(properties, T = 300)
-        if suffix is not None:
-            vars = f.free_symbols
-            #TODO: function from properties should return the list of variables, and this line should use it directly, incase some variables exist in constraints but not f
-            subs_dict = {var: symbols(str(var) + suffix) for var in vars}
-            
-            f = f.subs(subs_dict)
-            constraints = constraints.subs(subs_dict)
-        return sympy_pytential(f, constraints_sym=[constraints])
+        f, constraints = function_from_properties(properties)
+
+        if state is not None:
+            f = f.subs(state)
+            constraints = [c.subs(state) for c in constraints]
+
+        pyt = sympy_pytential(f, constraints_sym=constraints)
+        if suffix is not None:\
+            pyt = pyt.append_to_variables(suffix)
+        
+        return pyt
+        
         
     def __str__(self):
         """
@@ -95,7 +100,8 @@ class sympy_pytential(pytential):
         Args:
             variable_substitutions: a list of variable substitutions pairs
         """
-        return self.__init__(self.fcn_sym.subs(variable_substitutions),  constraints_sym = [c.subs(variable_substitutions) for c in self.constraints_sym])
+        
+        return sympy_pytential(self.fcn_sym.subs(variable_substitutions),  constraints_sym = [c.subs(variable_substitutions) for c in self.constraints_sym])
 
     def append_to_variables(self, suffix, variables_to_append=None):
         """
