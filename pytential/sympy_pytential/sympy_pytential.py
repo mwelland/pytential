@@ -1,5 +1,5 @@
 from sympy import pprint, Matrix, lambdify, Expr, hessian, symbols
-from .function_from_properties import function_from_properties
+from .function_from_properties import function_from_properties, sum_prefixed_variables
 #from .operations import append_to_sympy_variables
 from .. import pytential
 
@@ -68,7 +68,12 @@ class sympy_pytential(pytential):
             pyt = pyt.append_to_variables(suffix)
         
         return pyt
-        
+    
+    @classmethod
+    def add_constraints(cls, pyt, prefix):
+        constraints_sym = sum_prefixed_variables(pyt.vars, prefix) 
+        return sympy_pytential(pyt.fcn_sym, constraints_sym = pyt.constraints_sym + constraints_sym)
+
         
     def __str__(self):
         """
@@ -83,7 +88,7 @@ class sympy_pytential(pytential):
         print('\nHessian')
         pprint(self.hess_sym)
         print('\nConstraints')
-        pprint(self.constraints_sym)
+        [pprint(c) for c in self.constraints_sym] 
 
         return ''
     

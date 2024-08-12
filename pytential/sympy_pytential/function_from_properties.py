@@ -45,10 +45,12 @@ def function_from_properties(properties):
 
 def sum_prefixed_variables(vars, prefix): 
     #Forms the constraint for an extensive variable by matching any varialbes
-    # in pyt. Useful to sum variables with a suffix.   
+    # in pyt. Useful to sum variables with a suffix.
+    print('vars', vars)
+    print('prefix', prefix)   
     def spfx(vars, prefix): 
         partial_variables = [s for s in vars if s.startswith(prefix)]    
-        return sum(symbols(partial_variables)-symbols(prefix))
+        return sum(symbols(partial_variables))-symbols(prefix)
     return [spfx(vars, p) for p in prefix]
 
 
