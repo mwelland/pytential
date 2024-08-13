@@ -70,7 +70,7 @@ class sympy_pytential(pytential):
         return pyt
     
     @classmethod
-    def add_constraints(cls, pyt, prefix):
+    def sum_extensive_variables(cls, pyt, prefix):
         constraints_sym = sum_prefixed_variables(pyt.vars, prefix) 
         return sympy_pytential(pyt.fcn_sym, constraints_sym = pyt.constraints_sym + constraints_sym)
 
