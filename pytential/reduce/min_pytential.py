@@ -5,7 +5,11 @@ from numpy import array, vstack, vectorize
 import numpy as np
 
 class pyt_minimizer:
-    def __init__(self, pyt, vars_out, constraints = None, x0_default = None):
+    """
+    An object that finds the minimum of a pytential function, subject to its constraints
+    for a given set of output variables
+    """
+    def __init__(self, pyt, vars_out, x0_default = None):
         #If the default initial guess is not specified, use .5 for all variables
         n = len(pyt.vars)
         if x0_default is None:
@@ -15,7 +19,7 @@ class pyt_minimizer:
         #IDEA: maybe pytential functions can accept a vector directly and distribute according to vars?
         def vec_args(func): return lambda x: func(*x)
 
-        #If there are no constraints specified, use all the constraints in pyt
+        #Use all the constraints in pyt. Change in future?
         def zero_hess(x,v): return np.zeros((n, n))
         pyt_constraints = [NonlinearConstraint(vec_args(f), 0, 0, hess = zero_hess) for f in pyt.constraints]
 
@@ -23,6 +27,7 @@ class pyt_minimizer:
         assert all(v in pyt.vars for v in vars_out), "All variables_out must be in pyt.vars"
         m = array([[1 if vo == vi else 0 for vi in pyt.vars] for vo in vars_out])
 
+        self.vars_out = vars_out
         self.fcn = vec_args(pyt.fcn)
         self.jac = vec_args(pyt.grad)
         self.hess = vec_args(pyt.hess) 
@@ -44,14 +49,24 @@ class pyt_minimizer:
             method="trust-constr",  
             options={"factorization_method":"SVDFactorization"},
             )
-        
         return ans
 
+    def test1(self, x0=None, **kwargs):
+        if set(kwargs.keys()) != set(self.vars_out):
+            raise ValueError("All arguments must be in vars_out")
+        
+        return np.array([kwargs[key] for key in self.vars_out])
+
+
     def find_min(self, y, x0=None):
+
+        print(self.test1(Va=.6,Vb=.2))
+
         #TODO: #10 Insert a way to propogate the minimizer to the next run through interpolation
         if x0 is None: 
                 x0 = self.x0_default
         ans = self.min(y,x0)
+        print(ans)
         assert ans.success, "Minimization failed at y = " + str(y)
         return ans.fun #vectorize(min, excluded='x0')(y,x0)[0]
 
@@ -98,11 +113,11 @@ class min_pytential(pytential):
 
     """
     
-    def __init__(self, pyt, vars_out, constraints = None, x0_default = None):
+    def __init__(self, pyt, vars_out, x0_default = None):
 
         assert isinstance(pyt, pytential), "Takes a pytential as an arguement"
         
-        min = pyt_minimizer(pyt, vars_out, constraints = constraints, x0_default = x0_default)
+        min = pyt_minimizer(pyt, vars_out, x0_default = x0_default)
 
         #TODO: #8 This isn't implemented well. I should return the full derivative_structure from the minimizer, filling in where necessary. Also include the minimum values to be passed to the next y.
         # Working but needs revision. Issue with passing the min funciton into the eval / exec which would be cleaner.

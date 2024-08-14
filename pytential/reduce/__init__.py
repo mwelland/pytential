@@ -1,1 +1,1 @@
-from .min_pytential import min_pytential
+from .min_pytential import min_pytential, pyt_minimizer
