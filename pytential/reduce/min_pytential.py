@@ -17,20 +17,20 @@ class pyt_minimizer:
 
         #The minimizer expects a vector of varables so we define helper functions for the objective and constraints. 
         #IDEA: maybe pytential functions can accept a vector directly and distribute according to vars?
-        def vec_args(func): return lambda x: func(*x)
+        #def vec_args(func): return lambda x: func(*x)
 
         #Use all the constraints in pyt. Change in future?
         def zero_hess(x,v): return np.zeros((n, n))
-        pyt_constraints = [NonlinearConstraint(vec_args(f), 0, 0, hess = zero_hess) for f in pyt.constraints]
+        pyt_constraints = [NonlinearConstraint(c, 0, 0, hess = zero_hess) for c in pyt.constraints]
 
         # Additional constraints to map variables to variables out.
         assert all(v in pyt.vars for v in vars_out), "All variables_out must be in pyt.vars"
         m = array([[1 if vo == vi else 0 for vi in pyt.vars] for vo in vars_out])
 
         self.vars_out = vars_out
-        self.fcn = vec_args(pyt.fcn)
-        self.jac = vec_args(pyt.grad)
-        self.hess = vec_args(pyt.hess) 
+        self.fcn = pyt._fcn
+        self.jac = pyt._grad
+        self.hess = pyt._hess
         self.bounds = Bounds(0, np.inf)
         self.pyt_constraints = pyt_constraints
         self.vars_out_constraints = lambda y: LinearConstraint(m, y, y);     
@@ -51,22 +51,13 @@ class pyt_minimizer:
             )
         return ans
 
-    def test1(self, x0=None, **kwargs):
-        if set(kwargs.keys()) != set(self.vars_out):
-            raise ValueError("All arguments must be in vars_out")
-        
-        return np.array([kwargs[key] for key in self.vars_out])
-
-
     def find_min(self, y, x0=None):
-
-        print(self.test1(Va=.6,Vb=.2))
 
         #TODO: #10 Insert a way to propogate the minimizer to the next run through interpolation
         if x0 is None: 
                 x0 = self.x0_default
         ans = self.min(y,x0)
-        print(ans)
+        #print(ans)
         assert ans.success, "Minimization failed at y = " + str(y)
         return ans.fun #vectorize(min, excluded='x0')(y,x0)[0]
 
@@ -121,10 +112,15 @@ class min_pytential(pytential):
 
         #TODO: #8 This isn't implemented well. I should return the full derivative_structure from the minimizer, filling in where necessary. Also include the minimum values to be passed to the next y.
         # Working but needs revision. Issue with passing the min funciton into the eval / exec which would be cleaner.
-        lambda_args = ", ".join(vars_out)
-        lambda_body = f"lambda func: lambda {lambda_args}: func([{lambda_args}])"
-        f = eval(lambda_body)
-        fcn = vectorize(f(min.find_min))
+        # lambda_args = ", ".join(vars_out)
+        # lambda_body = f"lambda func: lambda {lambda_args}: func([{lambda_args}])"
+        # f = eval(lambda_body)
+        
+        #fcn = min.find_min
+        f2 = lambda x0: min.find_min(x0)
+        fcn = vectorize(f2)
+
+        Vectorize isn't working right. Somehow it is not taking a list of arrays but rather each element of the inputs. 
 
         super().__init__(fcn, vars_out)
         self.minimized_vars = pyt.vars

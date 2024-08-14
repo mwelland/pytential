@@ -26,7 +26,7 @@ class sympy_pytential(pytential):
         if vars is None:
             vars_fcn =  [l.name for l in fcn_sym.free_symbols]
             vars_constraints = [l.name for c in constraints_sym for l in c.free_symbols]
-            vars = list(set(vars_fcn + vars_constraints))
+            vars = sorted(list(set(vars_fcn + vars_constraints)))
       
         grad_sym = Matrix([fcn_sym]).jacobian(vars)
         grad_sym.simplify()
@@ -37,7 +37,7 @@ class sympy_pytential(pytential):
 
         structure_sym = [fcn_sym, grad_sym, hess_sym]
         
-        lambdify_expr = lambda expr: lambdify(vars, expr, modules="scipy")
+        lambdify_expr = lambda expr: lambdify([vars], expr, modules="scipy")
 
         fcn, grad, hess = [lambdify_expr(f) for f in structure_sym]
         differential_structure = lambdify_expr(structure_sym)

@@ -9,6 +9,23 @@ Base class of the pYtential package.
 # Facilitate finding norm of hessian (for preconditioning), eigenvalues, and nullspace. Operates on Hessian
 # Material creation should be separate function. Not redone by all processes. Centrallized process in case of distributed needs?
 
+def args_to_list(func):
+    """
+    Decorator to convert keyword arguments to a vector or pass through a vector
+    """
+    def wrapper(self, *args, **kwargs):
+        if len(args) == 1:
+            # Only one positional argument is allowed
+            args = args[0]
+        elif kwargs and not args:
+            # Map keyword arguments to a list
+            args = [kwargs[v] for v in self.vars]
+        else:
+            raise ValueError("Only one positional argument is allowed.")
+        #print('args in wrapper', args)
+        return func(self, args)
+    return wrapper
+
 class pytential:
     """
     Interface to a thermodynamic pytential
@@ -41,16 +58,17 @@ class pytential:
         # Flag or test for homogeneity? Test would be useful, flag not necessary unless there is value.
         # Can I automatically determine a set of homogenous variables / coordinates?
 
-        self.fcn  = fcn
         self.vars = vars
-        self.grad = grad
-        self.hess = hess
+        self._fcn  = fcn
+        self._grad = grad
+        self._hess = hess
+        self._differential_structure = differential_structure
 
-        if self.differential_structure is None:
-            pass
-            #TODO: Complete this! return self.differential_structure( *args, **kwargs)
-        else:
-            self.differential_structure = differential_structure
+        # if self.differential_structure is None:
+        #     pass
+        #     #TODO: Complete this! return self.differential_structure( *args, **kwargs)
+        # else:
+        #     self.differential_structure = differential_structure
 
         self.constraints = constraints
         #self.additional_fields = kwargs
@@ -60,17 +78,22 @@ class pytential:
         # Shorthand to field call
         return self.fcn(*args, **kwargs)
 
-    def field(self, *args, **kwargs):
-        return self.fcn(*args, **kwargs)
+    @args_to_list
+    def fcn(self, args):
+        #print('args in fcn call', args)
+        return self._fcn(args)
     
-    def gradient(self, *args, **kwargs):
-        return self.grad( *args, **kwargs)
+    @args_to_list
+    def grad(self, *args, **kwargs):
+        return self._grad( *args, **kwargs)
     
-    def hessian(self, *args, **kwargs):
-        return self.hess(*args, **kwargs) 
+    @args_to_list
+    def hess(self, *args, **kwargs):
+        return self._hess(*args, **kwargs) 
     
+    @args_to_list
     def differential_structure(self,  *args, **kwargs):
-        return self.differential_structure(*args, **kwargs)
+        return self._differential_structure(*args, **kwargs)
     
     #**Method to evaluate gradient with certain components based on vars**
 
