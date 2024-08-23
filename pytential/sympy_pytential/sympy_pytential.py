@@ -37,6 +37,11 @@ class sympy_pytential(pytential):
 
         structure_sym = [fcn_sym, grad_sym, hess_sym]
         
+        def replace_log_with_log1p(expr):
+            from sympy.codegen.cfunctions import log1p
+            return expr.replace(sp.log, lambda arg: log1p(arg - 1))
+        #TODO: #9 Replace log with log1p in the sympy expression for numerical stability. Add option to prevent. 
+
         lambdify_expr = lambda expr: lambdify([vars], expr, modules="scipy")
 
         fcn, grad, hess = [lambdify_expr(f) for f in structure_sym]
