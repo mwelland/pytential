@@ -1,3 +1,5 @@
+from .utils import find_matching_vars
+
 """
 Base class of the pYtential package.
 
@@ -5,7 +7,7 @@ Base class of the pYtential package.
 # Defined by sympy functions or surrogates
 # Tools to make composite and reduce dimensionality
 
-#Todo: Currently material must be built using single core, then saved. Issue is with randomization of variables in material creation (from free_symbols) and elmination of doubles during composite function creation.
+# Todo: Currently material must be built using single core, then saved. Issue is with randomization of variables in material creation (from free_symbols) and elmination of doubles during composite function creation.
 # Facilitate finding norm of hessian (for preconditioning), eigenvalues, and nullspace. Operates on Hessian
 # Material creation should be separate function. Not redone by all processes. Centrallized process in case of distributed needs?
 
@@ -18,7 +20,6 @@ def args_to_list(func):
             # Only one positional argument is allowed
             args = args[0]
         elif kwargs and not args:
-            # Map keyword arguments to a list
             args = [kwargs[v] for v in self.vars]
         else:
             raise ValueError("Only one positional argument is allowed.")
@@ -57,6 +58,8 @@ class pytential:
 
         # Flag or test for homogeneity? Test would be useful, flag not necessary unless there is value.
         # Can I automatically determine a set of homogenous variables / coordinates?
+
+        assert all(isinstance(v, str) for v in vars), "Variables must be strings"
 
         self.vars = vars
         self._fcn  = fcn
@@ -101,20 +104,23 @@ class pytential:
         """
         Pretty print the details of the pytential
         """
-        return 'Pytential of type ' + str(type(self)) + '\n' + \
-            'Variables: ' + str(self.vars) + '\n' + \
-            'Potential: ' + str(self.fcn) + '\n' + \
-            'Gradient: ' + str(self.grad) + '\n' + \
-            'Hessian: ' + str(self.hess) + '\n' + \
-            'Constraints: ' + str(self.constraints) + '\n'
-        # print('\nPytential of type ' + str(type(self)))
-        # print('\nVariables')
-        # print(self.vars)
-        # print('\nPotential')
-        # pprint(self.fcn_sym)
-        # print('\nGradient')
-        # pprint(self.grad_sym)
-        # print('\nHessian')
-        # pprint(self.hess_sym)
-        # print('\nConstraints')
-        # pprint(self.constraints_sym)    
+
+        result = 'Pytential of type ' + str(type(self)) + '\n' + \
+             'Variables: ' + str(self.vars) + '\n' + \
+             'Potential: ' + str(self.fcn) + '\n' + \
+             'Gradient: ' + str(self.grad) + '\n' + \
+             'Hessian: ' + str(self.hess) + '\n'
+
+        print('cont', self.constraints)
+        if self.constraints:
+            result += 'Constraints: ' + str(self.constraints) + '\n'
+    
+        return result
+
+    def find_matching_vars(self, pattern):
+        """
+        Class method for finding variables in a list of variables that match a pattern
+        """
+
+        return find_matching_vars(self.vars, pattern)
+

@@ -1,7 +1,9 @@
 from sympy import pprint, Matrix, lambdify, Expr, hessian, symbols
-from .function_from_properties import function_from_properties, sum_prefixed_variables
+from .function_from_properties import function_from_properties #, sum_prefixed_variables
 #from .operations import append_to_sympy_variables
+#from fnmatch import filter
 from .. import pytential
+from .utils import get_sum_constraint_expressions
 
 class sympy_pytential(pytential):
     """
@@ -19,7 +21,6 @@ class sympy_pytential(pytential):
     Future: Arguments may be any complete sets of conjugate variables
     """
     def __init__(self, fcn_sym, vars= None, constraints_sym = []):
-
         assert isinstance(fcn_sym, Expr), "Function is not a sympy expression." 
 
         # Automatically populate vars, grad, and hess
@@ -74,13 +75,13 @@ class sympy_pytential(pytential):
         
         return pyt
     
-    @classmethod
-    def sum_extensive_variables(cls, pyt, prefix):
-        constraints_sym = sum_prefixed_variables(pyt.vars, prefix) 
-        return sympy_pytential(pyt.fcn_sym, constraints_sym = pyt.constraints_sym + constraints_sym)
+    # @classmethod
+    # def sum_extensive_variables(cls, pyt, prefix):
+    #     constraints_sym = sum_prefixed_variables(pyt.vars, prefix) 
+    #     return sympy_pytential(pyt.fcn_sym, constraints_sym = pyt.constraints_sym + constraints_sym)
 
         
-    def __str__(self):
+    def pprint(self):
         """
         Pretty print the pytential and its gradients as sympy expressions - looks funny in jupyter?
         """
@@ -92,11 +93,25 @@ class sympy_pytential(pytential):
         pprint(self.grad_sym)
         print('\nHessian')
         pprint(self.hess_sym)
-        print('\nConstraints')
-        [pprint(c) for c in self.constraints_sym] 
 
-        return ''
+        if self.constraints_sym:
+            print('\nConstraints')
+            [pprint(c) for c in self.constraints_sym] 
     
+    def __str__(self):
+        """
+        Pretty print the pytential and its gradients as sympy expressions
+        """
+        result = '\nVariables\n' + str(self.vars) + '\n' + \
+             '\nPotential\n' + str(self.fcn_sym) + '\n' + \
+             '\nGradient\n' + str(self.grad_sym) + '\n' + \
+             '\nHessian\n' + str(self.hess_sym) + '\n'
+
+        if self.constraints_sym:
+            result += '\nConstraints\n' + '\n'.join([str(c) for c in self.constraints_sym]) + '\n'
+
+        return result
+
     def __add__(self, other):
         """
         Adds two sympy pytentials
@@ -134,3 +149,36 @@ class sympy_pytential(pytential):
         appended_variables = symbols(' '.join([str(v)+suffix for v in variables_to_append]))
         variables_to_rename = dict(zip(variables_to_append, appended_variables))
         return self.rename_variables(variables_to_rename)
+    
+    def get_sum_constraint_expressions(self, pattern_var_pairs):
+        """
+        Sums all terms in the expression that match a pattern, subtracts the variable to collect
+
+        Args:
+            pattern_var_pairs (list): A list of tuples, where each tuple contains a pattern and the corresponding variable to collect.
+
+        Returns:
+            list: A list of summed expressions for each pattern and variable pair.
+        """
+
+        return get_sum_constraint_expressions(self.vars, pattern_var_pairs)
+    
+    def add_sum_constraints(self, pattern_var_pairs):
+        """
+        Adds sum constraints to the pytential
+
+        Args:
+            pattern_var_pairs (list): A list of tuples, where each tuple contains a pattern and the corresponding variable to collect.
+        """
+
+        #def sum_extensive_variables(cls, pyt, prefix):
+        #     constraints_sym = sum_prefixed_variables(pyt.vars, prefix) 
+        #     return sympy_pytential(pyt.fcn_sym, constraints_sym = pyt.constraints_sym + constraints_sym)
+
+        new_constraint_expressions = self.get_sum_constraint_expressions(pattern_var_pairs)
+        
+        self.constraints_sym += new_constraint_expressions
+        lambdify_expr = lambda expr: lambdify([self.vars], expr, modules="scipy")
+        self.constraints += [lambdify_expr(c) for c in new_constraint_expressions]
+        
+        # return sympy_pytential(self.fcn_sym, constraints_sym = self.constraints_sym + constraints_sym)

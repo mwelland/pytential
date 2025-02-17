@@ -1,0 +1,15 @@
+Demo models:
+
+1. Hand built models, show plotting, constraints, and lowest common tangent as minimzer
+
+2. Binary models with phase interpolator - show minimal surface
+
+3. Binary model with phase as volume - show minimal surface
+
+4. Quadratic interpolation of both. 
+
+5. Interface as another phase. 
+
+
+- Sympy expr for reduce?
+- mninimizer - type of pytential? 
