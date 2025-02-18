@@ -1,4 +1,5 @@
-from .utils import find_matching_vars
+from .utils import find_matching_vars, get_sum_constraint_expressions
+from sympy import lambdify
 
 """
 Base class of the pYtential package.
@@ -123,4 +124,18 @@ class pytential:
         """
 
         return find_matching_vars(self.vars, pattern)
+    
+    def add_sum_constraints(self, pattern_var_pairs):
+        """
+        Adds sum constraints to the pytential
+
+        Args:
+            pattern_var_pairs (list): A list of tuples, where each tuple contains a pattern and the corresponding variable to collect.
+        """
+
+        new_constraint_expressions = get_sum_constraint_expressions(self.vars, pattern_var_pairs)
+        
+        self.constraints_sym += new_constraint_expressions
+        lambdify_expr = lambda expr: lambdify([self.vars], expr, modules="scipy")
+        self.constraints += [lambdify_expr(c) for c in new_constraint_expressions]
 

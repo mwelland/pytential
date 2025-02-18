@@ -12,4 +12,9 @@ Demo models:
 
 
 - Sympy expr for reduce?
-- mninimizer - type of pytential? 
+- minimizer - type of pytential that runs minimizer on others? 
+    - methods: single
+    -sweep
+    - keep reference of objective
+
+Should constraints be pytentials?!?     

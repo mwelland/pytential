@@ -1,9 +1,6 @@
 from sympy import pprint, Matrix, lambdify, Expr, hessian, symbols
 from .function_from_properties import function_from_properties #, sum_prefixed_variables
-#from .operations import append_to_sympy_variables
-#from fnmatch import filter
 from .. import pytential
-from .utils import get_sum_constraint_expressions
 
 class sympy_pytential(pytential):
     """
@@ -151,6 +148,7 @@ class sympy_pytential(pytential):
         return self.rename_variables(variables_to_rename)
     
     def get_sum_constraint_expressions(self, pattern_var_pairs):
+        # USEFUL or only in making summation constraints?
         """
         Sums all terms in the expression that match a pattern, subtracts the variable to collect
 
@@ -162,23 +160,3 @@ class sympy_pytential(pytential):
         """
 
         return get_sum_constraint_expressions(self.vars, pattern_var_pairs)
-    
-    def add_sum_constraints(self, pattern_var_pairs):
-        """
-        Adds sum constraints to the pytential
-
-        Args:
-            pattern_var_pairs (list): A list of tuples, where each tuple contains a pattern and the corresponding variable to collect.
-        """
-
-        #def sum_extensive_variables(cls, pyt, prefix):
-        #     constraints_sym = sum_prefixed_variables(pyt.vars, prefix) 
-        #     return sympy_pytential(pyt.fcn_sym, constraints_sym = pyt.constraints_sym + constraints_sym)
-
-        new_constraint_expressions = self.get_sum_constraint_expressions(pattern_var_pairs)
-        
-        self.constraints_sym += new_constraint_expressions
-        lambdify_expr = lambda expr: lambdify([self.vars], expr, modules="scipy")
-        self.constraints += [lambdify_expr(c) for c in new_constraint_expressions]
-        
-        # return sympy_pytential(self.fcn_sym, constraints_sym = self.constraints_sym + constraints_sym)
