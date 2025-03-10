@@ -22,6 +22,7 @@ class pyt_minimizer:
         #IDEA: maybe pytential functions can accept a vector directly and distribute according to vars?
         #def vec_args(func): return lambda x: func(*x)
 
+
         #Use all the constraints in pyt. Change in future?
         n = len(objective_pyt.vars)
         def zero_hess(x,v): return np.zeros((n, n))
@@ -110,7 +111,7 @@ class min_pytential(pytential):
     
     def __init__(self, objective_pyt, vars_out):
 
-        assert isinstance(objective_pyt, pytential), "Takes a pytential as an arguement"
+        assert isinstance(objective_pyt, pytential), "Objective pytential must be a pytential"
 
         min = pyt_minimizer(objective_pyt, vars_out)
        

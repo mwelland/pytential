@@ -21,10 +21,12 @@ def args_to_list(func):
             # Only one positional argument is allowed
             args = args[0]
         elif kwargs and not args:
-            args = [kwargs[v] for v in self.vars]
+            args = [kwargs.get(v, 0) for v in self.vars]
+            #args = [kwargs[v] for v in self.vars]
         else:
             raise ValueError("Only one positional argument is allowed.")
         #print('args in wrapper', args)
+        print(args)
         return func(self, args)
     return wrapper
 
@@ -125,6 +127,8 @@ class pytential:
 
         return find_matching_vars(self.vars, pattern)
     
+
+
     def add_sum_constraints(self, pattern_var_pairs):
         """
         Adds sum constraints to the pytential
@@ -135,6 +139,9 @@ class pytential:
 
         new_constraint_expressions = get_sum_constraint_expressions(self.vars, pattern_var_pairs)
         
+        #NEED to update variables in case constraints contain new ones.  
+        # Make immutable since variables are tied to positions
+
         self.constraints_sym += new_constraint_expressions
         lambdify_expr = lambda expr: lambdify([self.vars], expr, modules="scipy")
         self.constraints += [lambdify_expr(c) for c in new_constraint_expressions]
