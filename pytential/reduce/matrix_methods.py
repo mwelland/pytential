@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.linalg as la
 
+
+# TODO: specify variable names to keep by name, not index number. 
 def reduce_qp(Q, c, A, b , dependent_indices):
     """
     Reduces an equality-constrained quadratic program by eliminating dependent variables.
@@ -36,7 +38,12 @@ def reduce_qp(Q, c, A, b , dependent_indices):
     A_d = A[:, dependent_indices]
     A_f = A[:, free_indices]
 
-    
+    A_d_cond = np.linalg.cond(A_d)
+    if  A_d_cond > 1e10 or A_d_cond < 1e-10:
+      print("Warning: A_d has a poor condition number, results may be inaccurate.")
+      print("Consider eliminating another variable.")
+
+
 
     # Compute the pseudo-inverse of A_d
     A_d_inv = la.pinv(A_d, rcond=1e-15)
