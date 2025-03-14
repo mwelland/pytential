@@ -176,31 +176,28 @@ class sympy_pytential(pytential):
         """
         return Matrix(self.constraints_sym).jacobian(self.vars)
     
-class quad_expansion_pytential(sympy_pytential):
+# class quad_expansion_pytential(sympy_pytential):
 
-    def __init__(self, pot, y0):
-        """
-        Create a quadratic expansion of a pytential at a point y0
-        """
+#     def __init__(self, pot, y0):
+#         """
+#         Create a quadratic expansion of a pytential at a point y0
+#         """
         
-        self.y0 = y0
+#         self.y0 = y0
 
-        B = pot.hess(y0)
-        b = pot.grad(y0)
+#         B = pot.hess(y0)
+#         b = pot.grad(y0)
 
-        A = pot.get_constraint_jacobian()
+#         A = pot.get_constraint_jacobian()
 
-        fun_quad, response, minimizer, G = equality_qp(B, A, b)
+#         fun_quad, response, minimizer, G = equality_qp(B, A, b)
         
-        
-
-    #fcn_s = sp.simplify(fcn_s)
-    # if fcn_s is symbolic - auto recreate Jac and Hes or just calculate directly?
+  
 
 
-    expansion_point = dict(zip(pot.vars, y0))
-    pot_quad = potential(fun_quad, vars = vars_out, grad=response, hess=G, expansion_point = expansion_point)
-    #pot_quad = sympy_potential(fun_quad, vars = vars_out, expansion_point = expansion_point)
-    #matq.minimizer = minimizer
+#     expansion_point = dict(zip(pot.vars, y0))
+#     pot_quad = potential(fun_quad, vars = vars_out, grad=response, hess=G, expansion_point = expansion_point)
+#     #pot_quad = sympy_potential(fun_quad, vars = vars_out, expansion_point = expansion_point)
+#     #matq.minimizer = minimizer
 
-    return pot_quad_
+#     # return pot_quad_

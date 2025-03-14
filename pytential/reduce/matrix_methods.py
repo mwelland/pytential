@@ -1,4 +1,64 @@
 import numpy as np
+import scipy.linalg as la
+
+def reduce_qp(Q, c, A, b , dependent_indices):
+    """
+    Reduces an equality-constrained quadratic program by eliminating dependent variables.
+    1/2 x^T Q x + c^T x, subject to A x = b 
+    is reduced to
+    1/2 x^T Q_tilde x + c_tilde^T x, subject to A_tilde x = b_tilde,
+    where Q_tilde and c_tilde are the reduced quadratic and linear terms, respectively. 
+
+    Parameters:
+        Q (numpy.ndarray): Quadratic term matrix (symmetric).
+        c (numpy.ndarray): Linear term vector.
+        A (numpy.ndarray): Equality constraint matrix.
+        b (numpy.ndarray): Equality constraint vector.
+        dependent_indices (list): Indices of dependent variables to be eliminated.
+
+    Returns:
+        tuple: Reduced quadratic matrix (Q_tilde), reduced linear term (c_tilde).
+    """
+
+    # Identify indices of free variables
+    all_indices = np.arange(Q.shape[0])
+    free_indices = np.setdiff1d(all_indices, dependent_indices)
+
+    # Partition matrices and vectors
+    Q_dd = Q[np.ix_(dependent_indices, dependent_indices)]
+    Q_df = Q[np.ix_(dependent_indices, free_indices)]
+    Q_fd = Q[np.ix_(free_indices, dependent_indices)]
+    Q_ff = Q[np.ix_(free_indices, free_indices)]
+
+    c_d = c[dependent_indices]
+    c_f = c[free_indices]
+
+    A_d = A[:, dependent_indices]
+    A_f = A[:, free_indices]
+
+    
+
+    # Compute the pseudo-inverse of A_d
+    A_d_inv = la.pinv(A_d, rcond=1e-15)
+
+    A_d_inv_A_f = A_d_inv @ A_f
+    A_d_inv_b = A_d_inv @ b
+
+    # A_d_inv_A_f = la.lstsq(A_d, A_f)[0]
+    # A_d_inv_b = la.lstsq(A_d, b)[0]
+    # Q_dd = np.round(Q_dd, decimals=8)
+
+    # Compute the reduced quadratic and linear terms
+    Q_tilde = Q_ff - Q_fd @ A_d_inv_A_f - A_d_inv_A_f.T @ Q_df + A_d_inv_A_f.T @ Q_dd @ A_d_inv_A_f
+    c_tilde = c_f - A_d_inv_A_f.T @ c_d - A_d_inv_A_f.T @ Q_dd @ A_d_inv_b + 0.5* (Q_fd) @ A_d_inv_b + 0.5* Q_df.T @ A_d_inv_b
+
+
+    return Q_tilde, c_tilde
+
+
+
+
+
 
 def equality_qp_dual(B, A, c=None, d=None):
     """
