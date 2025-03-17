@@ -3,7 +3,7 @@ import scipy.linalg as la
 
 
 # TODO: specify variable names to keep by name, not index number. 
-def reduce_qp(Q, c, A, b , dependent_indices):
+def reduce_qp(Q, c, A, b=None, free_indices=None):
     """
     Reduces an equality-constrained quadratic program by eliminating dependent variables.
     1/2 x^T Q x + c^T x, subject to A x = b 
@@ -22,9 +22,16 @@ def reduce_qp(Q, c, A, b , dependent_indices):
         tuple: Reduced quadratic matrix (Q_tilde), reduced linear term (c_tilde).
     """
 
+    if b is None:
+      b = np.zeros(A.shape[0])
+
+    Q = np.array(Q, dtype=np.float64)
+    c = np.array(c, dtype=np.float64)
+    A = np.array(A, dtype=np.float64)
+
     # Identify indices of free variables
     all_indices = np.arange(Q.shape[0])
-    free_indices = np.setdiff1d(all_indices, dependent_indices)
+    dependent_indices = np.setdiff1d(all_indices, free_indices)
 
     # Partition matrices and vectors
     Q_dd = Q[np.ix_(dependent_indices, dependent_indices)]
@@ -32,8 +39,9 @@ def reduce_qp(Q, c, A, b , dependent_indices):
     Q_fd = Q[np.ix_(free_indices, dependent_indices)]
     Q_ff = Q[np.ix_(free_indices, free_indices)]
 
-    c_d = c[dependent_indices]
+    
     c_f = c[free_indices]
+    c_d = c[dependent_indices]
 
     A_d = A[:, dependent_indices]
     A_f = A[:, free_indices]
@@ -58,9 +66,15 @@ def reduce_qp(Q, c, A, b , dependent_indices):
     # Compute the reduced quadratic and linear terms
     Q_tilde = Q_ff - Q_fd @ A_d_inv_A_f - A_d_inv_A_f.T @ Q_df + A_d_inv_A_f.T @ Q_dd @ A_d_inv_A_f
     c_tilde = c_f - A_d_inv_A_f.T @ c_d - A_d_inv_A_f.T @ Q_dd @ A_d_inv_b + 0.5* (Q_fd) @ A_d_inv_b + 0.5* Q_df.T @ A_d_inv_b
+    f0_shift = 0 #0.5 * b.T @ A_d_inv_b - c_d.T @ A_d_inv_b + 0.5 * A_d_inv_b.T @ Q_dd @ A_d_inv_b # Check!
 
+    # Check if Q_tilde is symmetric
+    if np.allclose(Q_tilde, Q_tilde.T):
+        print("Q_tilde is symmetric.")
+    else:
+        print("Q_tilde is not symmetric.")
 
-    return Q_tilde, c_tilde
+    return Q_tilde, c_tilde, f0_shift
 
 
 

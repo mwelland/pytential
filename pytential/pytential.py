@@ -1,4 +1,5 @@
 from .utils import find_matching_vars, get_sum_constraint_expressions
+import dill as pickle
 from sympy import lambdify
 
 """
@@ -17,16 +18,16 @@ def args_to_list(func):
     Decorator to convert keyword arguments to a vector or pass through a vector
     """
     def wrapper(self, *args, **kwargs):
-        if len(args) == 1:
-            # Only one positional argument is allowed
+        if len(args) == 1: #and isinstance(args[0], (list, np.ndarray)):
+            # With one argument, assume a vector TODO: Check not a dictionary?
             args = args[0]
         elif kwargs and not args:
+            # Function was passed a set of keywords. Order into a vector accoding to self.vars
             args = [kwargs.get(v, 0) for v in self.vars]
             #args = [kwargs[v] for v in self.vars]
         else:
             raise ValueError("Only one positional argument is allowed.")
-        #print('args in wrapper', args)
-        print(args)
+        #print(args)
         return func(self, args)
     return wrapper
 
@@ -127,6 +128,71 @@ class pytential:
 
         return find_matching_vars(self.vars, pattern)
     
+    def write_to_file(self, file_name):
+        if not file_name.endswith('.pkl'):
+            file_name += '.pkl'
+        with open(file_name, 'wb') as output:
+             pickle.dump(self, output)
+
+    def read_potential(name):
+        print('hi', name)
+        if not name.endswith('.pkl'):
+            name += '.pkl'
+        with open(name, 'rb') as input:
+            pot = pickle.load(input)
+        return pot
+
+    # def load_potential(file_name):
+    #     from os.path import getmtime, isfile, dirname, join, basename, splitext
+    #     from importlib import import_module, util
+
+    #     def build_potential_from_file_path(file_path):
+    #         mod_name = splitext(basename(file_path))[0]
+    #         spec = util.spec_from_file_location(mod_name, file_path)
+    #         potential_file = util.module_from_spec(spec)
+    #         spec.loader.exec_module(potential_file)
+    #         print('Building potential')
+    #         return potential_file.build_potential()
+
+    #     def load_or_build_potential_from_file(file_name):
+    #         file_name_py = file_name +'.py'
+    #         file_name_saved = file_name +'.pkl'
+
+    #         # Handling mpi distribution: Potentials are loaded by all ranks, but are built on one rank.
+    #         # Not ideal since it implies copies of potentials everywhere. Better to centralize...?
+
+    #         # Ensure the saved potential is up to date.
+    #         if isfile(file_name_py):
+    #             if not isfile(file_name_saved) or getmtime(file_name_py) > getmtime(file_name_saved):
+    #                 potential = build_potential_from_file_path(file_name_py)
+    #                 potential.write_to_file(file_name_saved)
+
+    #         #---->Check to ensure potential only being built on one rank. Needed?
+    #         # from mpi4py import MPI
+    #         # comm = MPI.COMM_WORLD
+    #         # rank = comm.Get_rank()
+    #         # if rank ==0:
+    #         #     if isfile(file_name_py):
+    #         #         if not isfile(file_name_saved) or getmtime(file_name_py) > getmtime(file_name_saved):
+    #         #             potential = build_potential_from_file_path(file_name_py)
+    #         #             potential.write_to_file(file_name_saved)
+    #         # comm.barrier()
+        
+    #         if isfile(file_name_saved):
+    #             return read_potential(file_name_saved)
+
+
+    # module_path = dirname(__file__) if '__file__' in globals() else '.'
+    # module_path = join(module_path, 'common_systems')
+    # paths = ['.', module_path]
+
+    # for path in paths:
+    #     file_path = join(path, file_name)
+    #     potential = load_or_build_potential_from_file(file_path)
+    #     if potential is not None:
+    #         return potential
+
+    # raise FileNotFoundError("Potential not found")
 
 
     def add_sum_constraints(self, pattern_var_pairs):

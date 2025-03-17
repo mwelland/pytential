@@ -1,5 +1,6 @@
 from sympy import pprint, Matrix, lambdify, Expr, hessian, symbols
 from .function_from_properties import function_from_properties #, sum_prefixed_variables
+from ..reduce.matrix_methods import reduce_qp
 from .. import pytential
 
 class sympy_pytential(pytential):
@@ -32,6 +33,7 @@ class sympy_pytential(pytential):
                 
         hess_sym = hessian(fcn_sym, vars)
         hess_sym.simplify()
+        hess_sym = hess_sym.tolist()
 
         structure_sym = [fcn_sym, grad_sym, hess_sym]
         
@@ -55,22 +57,35 @@ class sympy_pytential(pytential):
         self.hess_sym = hess_sym
         self.constraints_sym = constraints_sym
 
-    @classmethod
-    def from_properties(cls, properties, state = None, suffix = None):
-        """
-        Create a sympy_pytential from a dictionary of properties
-        """
-        f, constraints = function_from_properties(properties)
+    # @classmethod
+    # def from_properties(cls, properties, state = None, suffix = None):
+    #     """
+    #     Create a sympy_pytential from a dictionary of properties
+    #     """
+    #     f, constraints = function_from_properties(properties)
 
-        if state is not None:
-            f = f.subs(state)
-            constraints = [c.subs(state) for c in constraints]
+    #     if state is not None:
+    #         f = f.subs(state)
+    #         constraints = [c.subs(state) for c in constraints]
 
-        pyt = sympy_pytential(f, constraints_sym=constraints)
-        if suffix is not None:\
-            pyt = pyt.append_to_variables(suffix)
+    #     pyt = sympy_pytential(f, constraints_sym=constraints)
+    #     if suffix is not None:\
+    #         pyt = pyt.append_to_variables(suffix)
         
-        return pyt
+    #     return pyt
+
+    
+    @classmethod
+    def quadratic(cls, hess, grad, f0, vars, constraints_sym=[]):
+        """
+        Create a quadratic expansion of a pytential given a Hessian matrix, gradient vector, and function value.
+        """
+        x = Matrix(symbols(vars))
+        Q = Matrix(hess)
+        b = Matrix(grad)
+        fcn = 1/2 * (x.T * Q * x)[0, 0] + b.dot(x) + f0
+        return sympy_pytential(fcn, vars=vars, constraints_sym=constraints_sym)
+    
     
     # @classmethod
     # def sum_extensive_variables(cls, pyt, prefix):
@@ -176,28 +191,39 @@ class sympy_pytential(pytential):
         """
         return Matrix(self.constraints_sym).jacobian(self.vars)
     
-# class quad_expansion_pytential(sympy_pytential):
 
-#     def __init__(self, pot, y0):
-#         """
-#         Create a quadratic expansion of a pytential at a point y0
-#         """
+    
+    def quadratic_expansion(self, y0):
+        """
+        returns a sympy pytential that is a quadratic expansion about y0
+        """
         
-#         self.y0 = y0
+        hess = self.hess(**y0)
+        grad = self.grad(**y0)
+        f0 = self.fcn(**y0)
 
-#         B = pot.hess(y0)
-#         b = pot.grad(y0)
+        # x = Matrix(symbols(pyt.vars))
+        # fcn = 1/2 * (x.T * B * x)[0, 0] + x.dot(b) + pyt.fcn(**y0)
+        return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars=self.vars, constraints_sym = self.constraints_sym)
 
-#         A = pot.get_constraint_jacobian()
 
-#         fun_quad, response, minimizer, G = equality_qp(B, A, b)
+    def remove_linear_constraints(self, vars_to_keep, y0):
+        """
+        Removes linear constraints through nullspace projection.
+        Currently only implemented for quadratic potentials.
+        """
+        # TODO: Shouldn't need y0
+        #TODO: carry forward any remaining constraints
+        B = self.hess(**y0)
+        b = self.grad(**y0)
+        A = self.get_constraint_jacobian()
         
-  
+        free_indices = [self.vars.index(var) for var in vars_to_keep]# self.vars[i] for i in vars_to_keep]
+        hess, grad, f0 = reduce_qp(B, b, A, free_indices=free_indices)
+        return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars = vars_to_keep)
+    
 
 
-#     expansion_point = dict(zip(pot.vars, y0))
-#     pot_quad = potential(fun_quad, vars = vars_out, grad=response, hess=G, expansion_point = expansion_point)
-#     #pot_quad = sympy_potential(fun_quad, vars = vars_out, expansion_point = expansion_point)
-#     #matq.minimizer = minimizer
-
-#     # return pot_quad_
+        # vars_to_keep = set(vars_to_keep)
+        # constraints_sym = [c for c in self.constraints_sym if not c.free_symbols.isdisjoint(vars_to_keep)]
+        # return sympy_pytential(self.fcn_sym, constraints_sym = constraints_sym)
