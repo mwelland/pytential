@@ -2,7 +2,6 @@ import numpy as np
 import scipy.linalg as la
 
 
-# TODO: specify variable names to keep by name, not index number. 
 def reduce_qp(Q, c, A, b=None, free_indices=None):
     """
     Reduces an equality-constrained quadratic program by eliminating dependent variables.
@@ -47,6 +46,7 @@ def reduce_qp(Q, c, A, b=None, free_indices=None):
     A_f = A[:, free_indices]
 
     A_d_cond = np.linalg.cond(A_d)
+    print("Condition number of A_d: ", A_d_cond)
     if  A_d_cond > 1e10 or A_d_cond < 1e-10:
       print("Warning: A_d has a poor condition number, results may be inaccurate.")
       print("Consider eliminating another variable.")
@@ -66,7 +66,8 @@ def reduce_qp(Q, c, A, b=None, free_indices=None):
     # Compute the reduced quadratic and linear terms
     Q_tilde = Q_ff - Q_fd @ A_d_inv_A_f - A_d_inv_A_f.T @ Q_df + A_d_inv_A_f.T @ Q_dd @ A_d_inv_A_f
     c_tilde = c_f - A_d_inv_A_f.T @ c_d - A_d_inv_A_f.T @ Q_dd @ A_d_inv_b + 0.5* (Q_fd) @ A_d_inv_b + 0.5* Q_df.T @ A_d_inv_b
-    f0_shift = 0 #0.5 * b.T @ A_d_inv_b - c_d.T @ A_d_inv_b + 0.5 * A_d_inv_b.T @ Q_dd @ A_d_inv_b # Check!
+
+    f0_shift = 0.5 * b.T @ A_d_inv.T @ Q_dd @ A_d_inv @ b - c_d.T @ A_d_inv @ b
 
     # Check if Q_tilde is symmetric
     if np.allclose(Q_tilde, Q_tilde.T):
@@ -74,7 +75,11 @@ def reduce_qp(Q, c, A, b=None, free_indices=None):
     else:
         print("Q_tilde is not symmetric.")
 
-    return Q_tilde, c_tilde, f0_shift
+    A_d_A_T_inv = la.pinv(A_d @ A_d.T)
+    lambda_linear = -A_d_A_T_inv@(A_d @ (Q_df - Q_dd @ A_d_inv @ A_f))
+    lambda_const = -A_d_A_T_inv@(A_d @ (Q_dd @ A_d_inv @ b + c_d))
+
+    return Q_tilde, c_tilde, f0_shift, lambda_linear, lambda_const
 
 
 
