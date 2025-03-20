@@ -46,7 +46,7 @@ def reduce_qp(Q, c, A, b=None, free_indices=None):
     A_f = A[:, free_indices]
 
     A_d_cond = np.linalg.cond(A_d)
-    print("Condition number of A_d: ", A_d_cond)
+    print("A_d has condition number {}, rank {}, and dimensions {}".format(A_d_cond, np.linalg.matrix_rank(A_d), A_d.shape))
     if  A_d_cond > 1e10 or A_d_cond < 1e-10:
       print("Warning: A_d has a poor condition number, results may be inaccurate.")
       print("Consider eliminating another variable.")
@@ -75,14 +75,96 @@ def reduce_qp(Q, c, A, b=None, free_indices=None):
     else:
         print("Q_tilde is not symmetric.")
 
+    #lmbda = -la.lstsq(A_d @ A_d.T, A_d @ (Q_df @ x_f + Q_dd @ x_d + c_d))[0]
+
     A_d_A_T_inv = la.pinv(A_d @ A_d.T)
-    lambda_linear = -la.lstsq(A_d@A_d.T,A_d @ (Q_df - Q_dd @ A_d_inv @ A_f))[0]
-    lambda_const = -A_d_A_T_inv@(A_d @ (Q_dd @ A_d_inv @ b + c_d))
+    lambda_linear = -la.lstsq(A_d@A_d.T, A_d @ (Q_df - Q_dd @ A_d_inv @ A_f))[0]
+    lambda_const = -A_d_A_T_inv @ (A_d @ (Q_dd @ A_d_inv @ b + c_d))
 
     return Q_tilde, c_tilde, f0_shift, lambda_linear, lambda_const
 
 
 
+import numpy as np
+import scipy.linalg as la
+
+def lagrange_multiplier_expr(H, f, A, b=None, free_idx=None, rcond=1e-10):
+    """
+    Compute the linear and constant terms of the Lagrange multipliers λ 
+    in terms of free variables (x_f), robust to rank deficiency.
+
+    Args:
+        H (ndarray): Symmetric, positive semidefinite Hessian matrix (n x n)
+        f (ndarray): Linear term in objective (n,)
+        A (ndarray): Constraint matrix (m x n), possibly rank deficient
+        b (ndarray): Constraint vector (m,)
+        dep_idx (array-like): Indices of dependent variables
+        free_idx (array-like): Indices of free variables
+        rcond (float): Threshold for singular value cutoff in pseudo-inverse
+
+    Returns:
+        W (ndarray): Linear mapping from free variables to multipliers (m x len(x_f))
+        w (ndarray): Constant offset for multipliers (m,)
+    """
+    if b is None:
+      b = np.zeros(A.shape[0])
+    
+    H = np.array(H, dtype=np.float64)
+    f = np.array(f, dtype=np.float64)
+    A = np.array(A, dtype=np.float64)
+
+    all_indices = np.arange(H.shape[0])
+    dep_idx = np.setdiff1d(all_indices, free_idx)
+    
+    # Partition A into dependent (Ad) and free (Af) parts
+    Ad = A[:, dep_idx]
+    Af = A[:, free_idx]
+
+    # Compute pseudoinverse of Ad robustly
+    Ad_pinv = la.pinv(Ad, rcond=rcond)
+
+    # Compute Hd, Hf from H
+    Hd = H[np.ix_(dep_idx, dep_idx)]
+    Hf = H[np.ix_(dep_idx, free_idx)]
+
+    fd  = f[dep_idx]
+
+    m = Ad.shape[0]
+    n = Hd.shape[0]
+    KKT = np.block([[Hd, Ad.T],
+                [Ad, np.zeros((m, m))]])
+    #print('KKT', KKT)
+    
+    #print('KKT_inverse', np.linalg.inv(KKT) )
+    #print(f.shape, np.array([1,0,0,0,1, 0]).shape)
+    
+    rhs = -np.concatenate([fd, -np.array([1,0,0,0,1, 0])])
+    sol = la.lstsq(KKT, rhs)[0]
+    x = sol[:n]
+    lambda_ = sol[n:]
+    print('sol', x,'lam', lambda_)
+
+    print(dep_idx)
+
+    
+
+
+    print('Hd shape {}, Hf shape {}'.format(Hd.shape, Hf.shape))
+
+    # Compute intermediate terms for clarity
+    # x_d = Ad_pinv @ (b - Af x_f)
+    R = Hd @ Ad_pinv @ Af - Hf
+    r = Hd @ Ad_pinv @ b + f[dep_idx]
+
+    # Form A transpose robust pseudo-inverse
+    Ad_T_pinv = la.pinv(Ad.T, rcond=rcond)
+
+    print('r shape {}, R shape, {}, Ad_t shape {}'.format(r.shape, R.shape, Ad_T_pinv.shape))
+    # Linear and constant terms
+    W = Ad_T_pinv @ R
+    w = -Ad_T_pinv @ r
+
+    return W, w
 
 
 
