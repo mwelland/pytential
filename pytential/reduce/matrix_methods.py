@@ -76,7 +76,7 @@ def reduce_qp(Q, c, A, b=None, free_indices=None):
         print("Q_tilde is not symmetric.")
 
     A_d_A_T_inv = la.pinv(A_d @ A_d.T)
-    lambda_linear = -A_d_A_T_inv@(A_d @ (Q_df - Q_dd @ A_d_inv @ A_f))
+    lambda_linear = -la.lstsq(A_d@A_d.T,A_d @ (Q_df - Q_dd @ A_d_inv @ A_f))[0]
     lambda_const = -A_d_A_T_inv@(A_d @ (Q_dd @ A_d_inv @ b + c_d))
 
     return Q_tilde, c_tilde, f0_shift, lambda_linear, lambda_const
