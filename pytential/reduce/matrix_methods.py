@@ -81,7 +81,9 @@ def reduce_qp(Q, c, A, b=None, free_indices=None):
     lambda_linear = -la.lstsq(A_d@A_d.T, A_d @ (Q_df - Q_dd @ A_d_inv @ A_f))[0]
     lambda_const = -A_d_A_T_inv @ (A_d @ (Q_dd @ A_d_inv @ b + c_d))
 
-    return Q_tilde, c_tilde, f0_shift, lambda_linear, lambda_const
+    dep_expr = lambda x_f: A_d_inv_b - A_d_inv_A_f @ x_f
+
+    return Q_tilde, c_tilde, f0_shift, lambda_linear, lambda_const, dep_expr
 
 
 
@@ -115,7 +117,8 @@ def lagrange_multiplier_expr(H, f, A, b=None, free_idx=None, rcond=1e-10):
 
     all_indices = np.arange(H.shape[0])
     dep_idx = np.setdiff1d(all_indices, free_idx)
-    
+
+
     # Partition A into dependent (Ad) and free (Af) parts
     Ad = A[:, dep_idx]
     Af = A[:, free_idx]
@@ -137,8 +140,15 @@ def lagrange_multiplier_expr(H, f, A, b=None, free_idx=None, rcond=1e-10):
     
     #print('KKT_inverse', np.linalg.inv(KKT) )
     #print(f.shape, np.array([1,0,0,0,1, 0]).shape)
+
+    T = 1600
+    RT = 8.134*T
+    mu0_SiC = -161028
+    rho_SiC = 3.21 / 40.11 * 1e6
+    rho_Ar = 101e3 / RT
+
     
-    rhs = -np.concatenate([fd, -np.array([1,0,0,0,1, 0])])
+    rhs = -np.concatenate([fd, -np.array([rho_SiC,0,0,0,1.*rho_SiC, 0])])
     sol = la.lstsq(KKT, rhs)[0]
     x = sol[:n]
     lambda_ = sol[n:]

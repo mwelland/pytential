@@ -233,7 +233,7 @@ class sympy_pytential(pytential):
 
         free_indices = [self.vars.index(var) for var in vars_to_keep]# self.vars[i] for i in vars_to_keep]
         print('free_indices', free_indices)
-        hess, grad, f0, lambda_linear, lambda_const = reduce_qp(B, b, A, free_indices=free_indices)
+        hess, grad, f0, lambda_linear, lambda_const, dep_expr = reduce_qp(B, b, A, free_indices=free_indices)
         print('old function\n', lambda_linear, lambda_const)
 
 
@@ -243,7 +243,7 @@ class sympy_pytential(pytential):
 
         #return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars = vars_to_keep)
         #return sympy_pytential.quadratic(hess=lambda_linear, grad=lambda_const, f0=0, vars = vars_to_keep)
-        return sympy_pytential.quadratic(hess=lml, grad=lmc, f0=0, vars = vars_to_keep)
+        return sympy_pytential.quadratic(hess=lml, grad=lmc, f0=0, vars = vars_to_keep), dep_expr
 
 
         # vars_to_keep = set(vars_to_keep)
