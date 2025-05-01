@@ -1,6 +1,6 @@
 from sympy import pprint, Matrix, lambdify, Expr, hessian, symbols
 from .function_from_properties import function_from_properties #, sum_prefixed_variables
-from ..reduce.matrix_methods import reduce_qp
+from ..reduce.matrix_methods import reduce_qp, lagrange_multiplier_expr
 from .. import pytential
 
 class sympy_pytential(pytential):
@@ -211,12 +211,26 @@ class sympy_pytential(pytential):
         Removes linear constraints through nullspace projection.
         Currently only implemented for quadratic potentials.
         """
+
         # TODO: Shouldn't need y0
         #TODO: carry forward any remaining constraints
         B = self.hess(**y0)
         b = self.grad(**y0)
         A = self.get_constraint_jacobian()
         
+        # n = Q.shape[0]
+        # m = A.shape[0]
+
+        # # Form the bordered system:
+        # KKT = np.block([[Q, A.T],
+        #         [A, np.zeros((m, m))]])
+        # rhs = -np.concatenate([c, -b])
+        # sol = la.solve(KKT, rhs)
+        # x = sol[:n]
+        # lambda_ = sol[n:]
+
+
+
         free_indices = [self.vars.index(var) for var in vars_to_keep]# self.vars[i] for i in vars_to_keep]
         hess, grad, f0, lambda_linear, lambda_const = reduce_qp(B, b, A, free_indices=free_indices)
         return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars = vars_to_keep)
