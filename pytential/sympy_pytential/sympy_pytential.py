@@ -42,7 +42,7 @@ class sympy_pytential(pytential):
             return expr.replace(sp.log, lambda arg: log1p(arg - 1))
         #TODO: #9 Replace log with log1p in the sympy expression for numerical stability. Add option to prevent. 
 
-        lambdify_expr = lambda expr: lambdify([vars], expr, modules="scipy")
+        lambdify_expr = lambda expr: lambdify([vars], expr, "numpy")
 
         fcn, grad, hess = [lambdify_expr(f) for f in structure_sym]
         differential_structure = lambdify_expr(structure_sym)
