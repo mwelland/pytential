@@ -193,14 +193,14 @@ class sympy_pytential(pytential):
     
 
     
-    def quadratic_expansion(self, y0):
+    def quadratic_expansion(self, expansion_point):
         """
         returns a sympy pytential that is a quadratic expansion about y0
         """
         
-        hess = self.hess(**y0)
-        grad = self.grad(**y0)
-        f0 = self.fcn(**y0)
+        hess = self.hess(**expansion_point)
+        grad = self.grad(**expansion_point)
+        f0 = self.fcn(**expansion_point)
 
         #TODO: Check that the expansion point is an equilibrium point based on equality of grad components (matched by variables?)
         return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars=self.vars, constraints_sym = self.constraints_sym)
@@ -232,18 +232,9 @@ class sympy_pytential(pytential):
 
 
         free_indices = [self.vars.index(var) for var in vars_to_keep]# self.vars[i] for i in vars_to_keep]
-        print('free_indices', free_indices)
-        hess, grad, f0, lambda_linear, lambda_const, dep_expr = reduce_qp(B, b, A, free_indices=free_indices)
-        print('old function\n', lambda_linear, lambda_const)
-
-
-        lml, lmc = lagrange_multiplier_expr(B, b, A, free_idx = free_indices, rcond=1e-10)
-        print('new function\n', lml, lmc)
-        print(vars_to_keep)
-
-        #return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars = vars_to_keep)
+        hess, grad, f0, lambda_linear, lambda_const = reduce_qp(B, b, A, free_indices=free_indices)
+        return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars = vars_to_keep)
         #return sympy_pytential.quadratic(hess=lambda_linear, grad=lambda_const, f0=0, vars = vars_to_keep)
-        return sympy_pytential.quadratic(hess=lml, grad=lmc, f0=0, vars = vars_to_keep), dep_expr
 
 
         # vars_to_keep = set(vars_to_keep)
