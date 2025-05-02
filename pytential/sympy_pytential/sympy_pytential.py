@@ -117,13 +117,13 @@ class sympy_pytential(pytential):
         """
         Pretty print the pytential and its gradients as sympy expressions
         """
-        result = '\nVariables\n' + str(self.vars) + '\n' + \
-             '\nPotential\n' + str(self.fcn_sym) + '\n' + \
-             '\nGradient\n' + str(self.grad_sym) + '\n' + \
-             '\nHessian\n' + str(self.hess_sym) + '\n'
+        result = 'x = ' + str(self.vars) + '\n\n' + \
+             'f(x) = ' + str(self.fcn_sym) + '\n\n' + \
+             'f\'(x)= ' + str(self.grad_sym) + '\n\n' + \
+             'f\"(x)= ' + str(self.hess_sym)
 
         if self.constraints_sym:
-            result += '\nConstraints\n' + '\n'.join([str(c) for c in self.constraints_sym]) + '\n'
+            result += '\n\nConstraints:\n0 = ' + '\n'.join([str(c) for c in self.constraints_sym]) + '\n'
 
         return result
 
@@ -192,10 +192,18 @@ class sympy_pytential(pytential):
         """
         Returns the jacobian of the constraints with respect to the variables
         """
-        return Matrix(self.constraints_sym).jacobian(self.vars)
-    
+        return Matrix(self.constraints_sym).jacobian(self.vars) 
 
-    
+    def set_variables(self, substitutions):
+        """
+        Substitutes variables in the pytential with new variables
+
+        Args:
+            substitutions: a list of variable substitutions pairs
+        """
+        
+        return sympy_pytential(self.fcn_sym.subs(substitutions), constraints_sym = [c.subs(substitutions) for c in self.constraints_sym])
+
     def quadratic_expansion(self, expansion_point):
         """
         returns a sympy pytential that is a quadratic expansion about y0

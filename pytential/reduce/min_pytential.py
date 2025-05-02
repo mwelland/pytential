@@ -1,6 +1,7 @@
 from .. import pytential
-from scipy.optimize import minimize, NonlinearConstraint, LinearConstraint, Bounds
 from scipy.interpolate import NearestNDInterpolator
+from .minimizer_tools import minimize_pytential
+
 from numpy import array, vstack, vectorize
 import numpy as np
 
@@ -115,7 +116,6 @@ class min_pytential(pytential):
         
 
         assert isinstance(objective_pyt, pytential), "Objective pytential must be a pytential"
-
         
         """
         Creates a partial function for f_constrained.fcn with some variables fixed.
@@ -128,42 +128,18 @@ class min_pytential(pytential):
         Returns:
             callable: A function that takes only the unfixed variables as input.
         """
-        # free_indices = [i for i, v in enumerate(vars) if v in free_vars_set]
-        # free_indices = np.array([v in free_vars_set for v in vars], dtype=bool)
-
-        free_idx = [i for i, name in enumerate(all_vars) if name in free_vars]
-        dep_idx  = [i for i, name in enumerate(all_vars) if name not in free_vars]
-
-        free_idx = np.array(free_idx, dtype=int)
-        dep_idx = np.array(dep_idx, dtype=int)
-
-        def obj(dep_arr, free_arr):
-            # Create a full array of variables
-            x = np.empty(len(all_vars), dtype=free_arr.dtype)
-            x[free_idx] = free_arr
-            x[dep_idx]  = dep_arr
-            return objective_pyt.fcn(x)
         
-        def const(dep_arr, free_arr):
-            # Create a full array of variables
-            x = np.empty(len(all_vars), dtype=free_arr.dtype)
-            x[free_idx] = free_arr
-            x[dep_idx]  = dep_arr
-            return objective_pyt.constraints[1](x)
-
-        from scipy.optimize import differential_evolution, shgo, NonlinearConstraint
-        bounds = [(0.0001, .9999)] * 2
-        nlc = NonlinearConstraint(const, 0, 0, args=(free_arr))
-        obj = partial_fcn
-
-        min = pyt_minimizer(objective_pyt, free_vars)
-       
-        fcn = min.find_min
+        def min_fcn(free_args):
+            print(free_vars,free_args)
+            pyt_reduced = objective_pyt.set_variables(dict(zip(free_vars,free_args)))
+            print('pyt_reduced', pyt_reduced)
+            res = minimize_pytential(pyt_reduced)
+            print('results', res)
+            return res.fun
         
 
-        #Vectorize isn't working right. Somehow it is not taking a list of arrays but rather each element of the inputs. 
 
-        super().__init__(fcn, free_vars)
-        self.minimized_vars = objective_pyt.vars
+        super().__init__(min_fcn, free_vars)
+        
        
         return 

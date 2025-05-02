@@ -24,7 +24,7 @@ def args_to_list(func):
             # With one argument, assume a vector TODO: Check not a dictionary?
             args = args[0]
         elif kwargs and not args:
-            # Function was passed a set of keywords. Order into a vector accoding to self.vars
+            # Function was passed a set of keywords. Order into a vector according to self.vars
             args = [kwargs.get(v, 0) for v in self.vars]
             #args = [kwargs[v] for v in self.vars]
         else:
@@ -68,6 +68,7 @@ class pytential:
         assert all(isinstance(v, str) for v in vars), "Variables must be strings"
 
         self.vars = vars
+        # All of these functions have vector arguments
         self._fcn  = fcn
         self._grad = grad
         self._hess = hess
@@ -129,6 +130,16 @@ class pytential:
         """
 
         return find_matching_vars(self.vars, pattern)
+    
+    def set_variables(self, substitutions):
+        """
+        Set the variables in the potential to a new set of variables
+
+        Args:
+            substitutions (dict): A dictionary of substitutions to be made in the potential
+        """
+        print("Not implemented. Overridden by sympy_pytential")
+        pass
     
     def write_to_file(self, file_name):
         if not file_name.endswith('.pkl'):
