@@ -9,6 +9,8 @@ Base class of the pYtential package.
 # Defined by sympy functions or surrogates
 # Tools to make composite and reduce dimensionality
 
+#TODO: Currently calling is execting a vector of arguments. If there in only one variable, can this be skipped?
+
 # Todo: Currently material must be built using single core, then saved. Issue is with randomization of variables in material creation (from free_symbols) and elmination of doubles during composite function creation.
 # Facilitate finding norm of hessian (for preconditioning), eigenvalues, and nullspace. Operates on Hessian
 # Material creation should be separate function. Not redone by all processes. Centrallized process in case of distributed needs?

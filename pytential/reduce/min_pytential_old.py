@@ -112,49 +112,7 @@ class min_pytential(pytential):
     
     def __init__(self, objective_pyt, free_vars):
 
-        
-
         assert isinstance(objective_pyt, pytential), "Objective pytential must be a pytential"
-
-        
-        """
-        Creates a partial function for f_constrained.fcn with some variables fixed.
-
-        Args:
-            fcn (callable): The original function (e.g., f_constrained.fcn).
-            vars (list): The list of all variable names.
-            fixed_vars (dict): A dictionary of fixed variable values (e.g., {'x': 0.5}).
-
-        Returns:
-            callable: A function that takes only the unfixed variables as input.
-        """
-        # free_indices = [i for i, v in enumerate(vars) if v in free_vars_set]
-        # free_indices = np.array([v in free_vars_set for v in vars], dtype=bool)
-
-        free_idx = [i for i, name in enumerate(all_vars) if name in free_vars]
-        dep_idx  = [i for i, name in enumerate(all_vars) if name not in free_vars]
-
-        free_idx = np.array(free_idx, dtype=int)
-        dep_idx = np.array(dep_idx, dtype=int)
-
-        def obj(dep_arr, free_arr):
-            # Create a full array of variables
-            x = np.empty(len(all_vars), dtype=free_arr.dtype)
-            x[free_idx] = free_arr
-            x[dep_idx]  = dep_arr
-            return objective_pyt.fcn(x)
-        
-        def const(dep_arr, free_arr):
-            # Create a full array of variables
-            x = np.empty(len(all_vars), dtype=free_arr.dtype)
-            x[free_idx] = free_arr
-            x[dep_idx]  = dep_arr
-            return objective_pyt.constraints[1](x)
-
-        from scipy.optimize import differential_evolution, shgo, NonlinearConstraint
-        bounds = [(0.0001, .9999)] * 2
-        nlc = NonlinearConstraint(const, 0, 0, args=(free_arr))
-        obj = partial_fcn
 
         min = pyt_minimizer(objective_pyt, free_vars)
        

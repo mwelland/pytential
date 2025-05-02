@@ -3,6 +3,9 @@ from .function_from_properties import function_from_properties #, sum_prefixed_v
 from ..reduce.matrix_methods import reduce_qp, lagrange_multiplier_expr
 from .. import pytential
 
+#TODO: #11 Have sympy_pytential able to take a list of sympy expressions and output a list of pytentials. Maybe this belongs in the pytential class directly?
+
+
 class sympy_pytential(pytential):
     """
     Make a pytential from a sympy expression
