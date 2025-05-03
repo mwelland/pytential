@@ -153,24 +153,23 @@ class pytential:
             name += '.pkl'
         with open(name, 'rb') as input:
             pot = pickle.load(input)
-        return pot
+        matrix = []
+        constants = []
 
-    # def load_potential(file_name):
-    #     from os.path import getmtime, isfile, dirname, join, basename, splitext
-    #     from importlib import import_module, util
+        for fcn in constraints:
+            # Compute the constant and vector for the current constraint
+            constant = fcn(np.zeros((n, 1)))
+            line = fcn(np.identity(n)) - constant
 
-    #     def build_potential_from_file_path(file_path):
-    #         mod_name = splitext(basename(file_path))[0]
-    #         spec = util.spec_from_file_location(mod_name, file_path)
-    #         potential_file = util.module_from_spec(spec)
-    #         spec.loader.exec_module(potential_file)
-    #         print('Building potential')
-    #         return potential_file.build_potential()
+            # Append to the matrix and constants list
+            matrix.append(line)
+            constants.append(constant)
 
-    #     def load_or_build_potential_from_file(file_name):
-    #         file_name_py = file_name +'.py'
-    #         file_name_saved = file_name +'.pkl'
+        # Convert to NumPy arrays
+        matrix = np.array(matrix)
+        constants = np.array(constants)
 
+        return matrix, constants
     #         # Handling mpi distribution: Potentials are loaded by all ranks, but are built on one rank.
     #         # Not ideal since it implies copies of potentials everywhere. Better to centralize...?
 

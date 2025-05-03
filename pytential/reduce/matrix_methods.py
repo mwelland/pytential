@@ -2,6 +2,37 @@ import numpy as np
 import scipy.linalg as la
 
 
+def get_constraints_matrix_and_vector(fcns, n):
+    """
+    Computes the constraint matrix (Jacobian) and constants for a set of constraints.
+
+    Args:
+        constraints (list): List of constraint functions.
+            n (int): Number of variables.
+
+        Returns:
+            tuple: (matrix, constants)
+                - matrix: A 2D NumPy array where each row is the vector from a constraint.
+                - constants: A 1D NumPy array of constants from each constraint.
+    """
+    matrix = []
+    constants = []
+
+    for fcn in fcns:
+        # Compute the constant and vector for the current constraint
+        constant = fcn(np.zeros((n, 1)))
+        line = fcn(np.identity(n)) - constant
+
+        # Append to the matrix and constants list
+        matrix.append(line)
+        constants.append(constant)
+
+    # Convert to NumPy arrays
+    matrix = np.array(matrix)
+    constants = np.array(constants)
+
+    return matrix, constants
+
 def reduce_qp(Q, c, A, b=None, free_indices=None):
     """
     Reduces an equality-constrained quadratic program by eliminating dependent variables.
