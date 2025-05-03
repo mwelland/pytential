@@ -131,6 +131,7 @@ class min_pytential(pytential):
         
         def min_fcn(free_args):
             pyt_reduced = objective_pyt.set_variables(dict(zip(free_vars,free_args)))
+            print('pyt_reduced', pyt_reduced)
             res = minimize_pytential(pyt_reduced)
             # print('results', res)
             return res

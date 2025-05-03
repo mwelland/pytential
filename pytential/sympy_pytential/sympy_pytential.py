@@ -121,7 +121,7 @@ class sympy_pytential(pytential):
              'f(x) = ' + str(self.fcn_sym) + '\n\n' + \
              'f\'(x)= ' + str(self.grad_sym) + '\n\n' + \
              'f\"(x)= ' + str(self.hess_sym)
-
+        # TODO: #12 Make 0= for all constraints listed
         if self.constraints_sym:
             result += '\n\nConstraints:\n0 = ' + '\n'.join([str(c) for c in self.constraints_sym]) + '\n'
 
