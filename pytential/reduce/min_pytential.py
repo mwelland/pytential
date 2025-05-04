@@ -131,10 +131,11 @@ class min_pytential(pytential):
         
         def min_fcn(free_args):
             pyt_reduced = objective_pyt.set_variables(dict(zip(free_vars,free_args)))
+            print(pyt_reduced.vars)
             #print('pyt_reduced', pyt_reduced)
             res = minimize_pytential(pyt_reduced)
             # print('results', res)
-            return res.fun
+            return res
         
         # def min_fcn_v(free_args_array):
         #     """
@@ -154,7 +155,7 @@ class min_pytential(pytential):
         #     return np.array([min_fcn(a) for a in free_args_array])
 
         # Vectorized version of min_fcn to handle broadcasting
-        min_fcn_vectorized = np.vectorize(min_fcn, signature='(n)->()')
+        #min_fcn_vectorized = np.vectorize(min_fcn, signature='(n)->()')
 
         # Wrapper to handle broadcasting over rows of a 2D array
         def min_fcn_broadcast(free_args_array):
@@ -169,9 +170,9 @@ class min_pytential(pytential):
             """
             free_args_array = np.array(free_args_array)
             if free_args_array.shape[0] == 1:
-                return min_fcn(free_args_array[0])
+                return min_fcn(free_args_array[0]).fun
             else: 
-                return np.apply_along_axis(min_fcn, axis=0, arr=free_args_array)
+                return np.apply_along_axis(lambda args: min_fcn(args).fun, axis=0, arr=free_args_array)
 
 
         super().__init__(lambda x: min_fcn_broadcast(x), free_vars)

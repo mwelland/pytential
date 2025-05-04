@@ -29,15 +29,10 @@ class sympy_pytential(pytential):
             vars_fcn =  [l.name for l in fcn_sym.free_symbols]
             vars_constraints = [l.name for c in constraints_sym for l in c.free_symbols]
             vars = sorted(list(set(vars_fcn + vars_constraints)))
-      
         grad_sym = Matrix([fcn_sym]).jacobian(vars)
-        grad_sym.simplify()
         grad_sym = grad_sym.tolist()[0]
-                
         hess_sym = hessian(fcn_sym, vars)
-        hess_sym.simplify()
         hess_sym = hess_sym.tolist()
-
         structure_sym = [fcn_sym, grad_sym, hess_sym]
         
         def replace_log_with_log1p(expr):
@@ -51,9 +46,7 @@ class sympy_pytential(pytential):
         differential_structure = lambdify_expr(structure_sym)
 
         constraints = [lambdify_expr(c) for c in constraints_sym]
-
         super().__init__(fcn, vars, grad=grad, hess=hess, differential_structure=differential_structure, constraints = constraints)
-
         # self.fcns = fcns
         self.fcn_sym = fcn_sym
         self.grad_sym = grad_sym
