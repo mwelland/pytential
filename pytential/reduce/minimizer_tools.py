@@ -7,7 +7,7 @@ def minimize_pytential(pyt):
     # Minimizes the pytential over all free variables subject to the constraints
     nlc = [NonlinearConstraint(c, 0, 0) for c in pyt.constraints]
     lc = ({'type': 'eq', 'fun': c} for c in pyt.constraints)
-    bounds = [(0.001, .999)] * len(pyt.vars)
+    #bounds = [(0.001, .999)] * len(pyt.vars)
     # res = differential_evolution(
     #     pyt.fcn, bounds,
     #     constraints=(nlc,),
@@ -36,17 +36,30 @@ def minimize_pytential(pyt):
     # )
 
     A,b = get_constraints_matrix_and_vector(pyt.constraints, len(pyt.vars))
-    x0 = np.linalg.lstsq(A,-b)[0]
-    print(x0)
+    x0 = np.linalg.lstsq(A, -b, rcond=None)[0].flatten()
+
+    bounds = Bounds([1e-6]*n, [inf]*n)
+    x0 = np.clip(x0, bounds.lb, bounds.ub)
 
 
-    res = minimize(pyt._fcn, 
+    res = minimize(
+        pyt._fcn,
         x0,
-        jac = pyt._grad,
-        hess = pyt._hess,
-        bounds = Bounds(0, inf),
-        constraints= pyt_constraints,
-        method="trust-constr",  
-        options={"factorization_method":"SVDFactorization"},
-        )
+        method='SLSQP',
+        jac=pyt._grad,
+        bounds=bounds,
+        constraints=lc
+    )
+
+
+    # res = minimize(pyt._fcn, 
+    #     x0,
+    #     jac = pyt._grad,
+    #     hess = pyt._hess,
+    #     bounds = bounds,
+    #     constraints= lc,
+    #     method="trust-constr",  
+        
+    #     options={"factorization_method":"SVDFactorization"},
+    #     )
     return res

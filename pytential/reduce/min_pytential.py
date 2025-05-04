@@ -131,10 +131,10 @@ class min_pytential(pytential):
         
         def min_fcn(free_args):
             pyt_reduced = objective_pyt.set_variables(dict(zip(free_vars,free_args)))
-            print('pyt_reduced', pyt_reduced)
+            #print('pyt_reduced', pyt_reduced)
             res = minimize_pytential(pyt_reduced)
             # print('results', res)
-            return res
+            return res.fun
         
         # def min_fcn_v(free_args_array):
         #     """
@@ -153,7 +153,28 @@ class min_pytential(pytential):
         #     # Apply min_fcn to each row
         #     return np.array([min_fcn(a) for a in free_args_array])
 
-        super().__init__(lambda x: min_fcn(x)["fun"], free_vars)
+        # Vectorized version of min_fcn to handle broadcasting
+        min_fcn_vectorized = np.vectorize(min_fcn, signature='(n)->()')
+
+        # Wrapper to handle broadcasting over rows of a 2D array
+        def min_fcn_broadcast(free_args_array):
+            """
+            Broadcasted version of min_fcn to handle array inputs.
+
+            Args:
+                free_args_array: 2D array where each row corresponds to a set of free variables.
+
+            Returns:
+                Array of minimized function values for each row of free_args_array.
+            """
+            free_args_array = np.array(free_args_array)
+            if free_args_array.shape[0] == 1:
+                return min_fcn(free_args_array[0])
+            else: 
+                return np.apply_along_axis(min_fcn, axis=0, arr=free_args_array)
+
+
+        super().__init__(lambda x: min_fcn_broadcast(x), free_vars)
         
         self.min_fcn = min_fcn
        
