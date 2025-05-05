@@ -17,16 +17,29 @@ def minimize_pytential(pyt):
     A,b = get_constraints_matrix_and_vector(pyt.constraints, len(pyt.vars))
     x0 = np.linalg.lstsq(A, -b, rcond=None)[0].flatten()
 
-    bounds = Bounds([1e-6]*n, [inf]*n)
+    bounds = Bounds([1e-6]*n, [inf]*n, keep_feasible=True)
     x0 = np.clip(x0, bounds.lb, bounds.ub)
-
+    # TODO: #14 GEt a global minimizer working here? Issues with constraints...?
     res = minimize(
         pyt._fcn,
         x0,
         method='SLSQP',
+        # method='trust-constr',
         jac=pyt._grad,
+        #hess=pyt._hess,
         bounds=bounds,
         constraints=lc
     )
+
+
+    # bnds = Bounds(lb, ub, keep_feasible=True)
+    # res = minimize(pyt._fcn,
+    #         x0,
+    #         method='trust-constr',
+    #         jac=grad,
+    #         hess=hess,
+    #         bounds=bnds,
+    #         constraints=constraints,
+    #         options={'verbose': 2})
 
     return res
