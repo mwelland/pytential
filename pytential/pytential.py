@@ -1,13 +1,12 @@
 from .utils import find_matching_vars, get_sum_constraint_expressions
 import dill as pickle
-from sympy import lambdify
+import numpy as np
+#from sympy import lambdify
 
 """
 Base class of the pYtential package.
 
 """
-# Defined by sympy functions or surrogates
-# Tools to make composite and reduce dimensionality
 
 #TODO: Currently calling is execting a vector of arguments. If there in only one variable, can this be skipped?
 
@@ -15,22 +14,41 @@ Base class of the pYtential package.
 # Facilitate finding norm of hessian (for preconditioning), eigenvalues, and nullspace. Operates on Hessian
 # Material creation should be separate function. Not redone by all processes. Centrallized process in case of distributed needs?
 
+
 def args_to_list(func):
     """
-    Decorator to convert keyword arguments to a vector or pass through a vector
+    Decorator to allow flexibility in specifying arguments.
+
+    Ensures functions receive an n x p array, where n = number of variables in self.vars and p = number of points to evaluate. 
+
+    - If a single positional argument is passed, it is assumed to be an array with first dimension = number of vars.
+    - If keyword arguments are given, they are converted to an array in the order of self.vars.
+    - Scalars in kwargs are broadcast to match the length of the longest array.
+    - All arrays/lists must be of length 1 or the same length.
+    - Only one positional argument is allowed.
     """
     def wrapper(self, *args, **kwargs):
-        if len(args) == 1: #and isinstance(args[0], (list, np.ndarray)):
-            # With one argument, assume a vector TODO: Check not a dictionary?
-            args = args[0]
-        elif kwargs and not args:
-            # Function was passed a set of keywords. Order into a vector according to self.vars
-            args = [kwargs.get(v, 0) for v in self.vars]
-            #args = [kwargs[v] for v in self.vars]
+        if len(args) == 1: #and not kwargs:
+            arg_vec = np.asarray(args[0])
+            arg_vec = arg_vec.reshape(len(self.vars),-1)    #Ensures the first dimension is the number of variables
+        elif not args and kwargs:
+            extra_keys = set(kwargs.keys()) - set(self.vars)
+            if extra_keys:
+                raise ValueError(f"Unknown keyword arguments: {extra_keys}. Allowed: {self.vars}")
+            values = [kwargs.get(v, 0) for v in self.vars]
+            # Determine the target length for broadcasting
+            lengths = [np.size(val) for val in values]
+            target_len = max(lengths)
+            if not all(l == 1 or l == target_len for l in lengths):
+                raise ValueError(
+                    f"All arguments must be scalars or arrays of the same length. Got lengths: {lengths}"
+                )
+            # Broadcast scalars to arrays of target_len
+            broadcasted = [np.full(target_len, val) if np.size(val) == 1 else np.asarray(val) for val in values]
+            arg_vec = np.vstack(broadcasted)
         else:
-            raise ValueError("Only one positional argument is allowed.")
-        #print(args)
-        return func(self, args)
+            raise ValueError("Only one positional argument (vector) or keyword arguments allowed.")
+        return func(self, arg_vec)
     return wrapper
 
 class pytential:
@@ -207,20 +225,20 @@ class pytential:
     # raise FileNotFoundError("Potential not found")
 
 
-    def add_sum_constraints(self, pattern_var_pairs):
-        """
-        Adds sum constraints to the pytential
+    # def add_sum_constraints(self, pattern_var_pairs):
+    #     """
+    #     Adds sum constraints to the pytential
 
-        Args:
-            pattern_var_pairs (list): A list of tuples, where each tuple contains a pattern and the corresponding variable to collect.
-        """
+    #     Args:
+    #         pattern_var_pairs (list): A list of tuples, where each tuple contains a pattern and the corresponding variable to collect.
+    #     """
 
-        new_constraint_expressions = get_sum_constraint_expressions(self.vars, pattern_var_pairs)
+    #     new_constraint_expressions = get_sum_constraint_expressions(self.vars, pattern_var_pairs)
         
-        #NEED to update variables in case constraints contain new ones.  
-        # Make immutable since variables are tied to positions
+    #     #NEED to update variables in case constraints contain new ones.  
+    #     # Make immutable since variables are tied to positions
 
-        self.constraints_sym += new_constraint_expressions
-        lambdify_expr = lambda expr: lambdify([self.vars], expr, modules="scipy")
-        self.constraints += [lambdify_expr(c) for c in new_constraint_expressions]
+    #     self.constraints_sym += new_constraint_expressions
+    #     lambdify_expr = lambda expr: lambdify([self.vars], expr, modules="scipy")
+    #     self.constraints += [lambdify_expr(c) for c in new_constraint_expressions]
 

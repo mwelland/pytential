@@ -2,6 +2,7 @@ from scipy.optimize import minimize, NonlinearConstraint, LinearConstraint, Boun
 from numpy import inf
 from .matrix_methods import get_constraints_matrix_and_vector
 import numpy as np
+import warnings
 
 def minimize_pytential(pyt):
     # Minimizes the pytential over all free variables subject to the constraints
@@ -20,16 +21,18 @@ def minimize_pytential(pyt):
     bounds = Bounds([1e-6]*n, [inf]*n, keep_feasible=True)
     x0 = np.clip(x0, bounds.lb, bounds.ub)
     # TODO: #14 GEt a global minimizer working here? Issues with constraints...?
-    res = minimize(
-        pyt._fcn,
-        x0,
-        method='SLSQP',
-        # method='trust-constr',
-        jac=pyt._grad,
-        #hess=pyt._hess,
-        bounds=bounds,
-        constraints=lc
-    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = minimize(
+            pyt._fcn,
+            x0,
+            method='SLSQP',
+            # method='trust-constr',
+            jac=pyt._grad,
+            #hess=pyt._hess,
+            bounds=bounds,
+            constraints=lc
+        )
 
 
     # bnds = Bounds(lb, ub, keep_feasible=True)
