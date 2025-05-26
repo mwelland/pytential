@@ -16,23 +16,45 @@ def minimize_pytential(pyt):
                         for c in pyt.constraints]
     
     A,b = get_constraints_matrix_and_vector(pyt.constraints, len(pyt.vars))
-    x0 = np.linalg.lstsq(A, -b, rcond=None)[0].flatten()
 
-    bounds = Bounds([1e-6]*n, [inf]*n, keep_feasible=True)
+    b = np.atleast_1d(b).flatten()  # Ensure b is 1D
+    
+    linear_constraint = LinearConstraint(A, -b, -b)
+    
+    bounds = Bounds([1e-5]*n, [inf]*n, keep_feasible=True)
+
+    x0 = np.linalg.lstsq(A, -b, rcond=None)[0].flatten()
     x0 = np.clip(x0, bounds.lb, bounds.ub)
-    # TODO: #14 GEt a global minimizer working here? Issues with constraints...?
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        res = minimize(
+
+
+    # TODO: #14 Get a global minimizer working here? Issues with constraints...?
+
+    res = minimize(
             pyt._fcn,
             x0,
-            method='SLSQP',
-            # method='trust-constr',
+            method='trust-constr',
             jac=pyt._grad,
-            #hess=pyt._hess,
+            hess=pyt._hess,
             bounds=bounds,
-            constraints=lc
+            constraints=linear_constraint#pyt_constraints
         )
+    
+
+    # with warnings.catch_warnings():
+    #     warnings.simplefilter("ignore")
+    #     res = minimize(
+    #         pyt._fcn,
+    #         x0,
+    #         method='SLSQP',
+    #         # method='trust-constr',
+    #         jac=pyt._grad,
+    #         #hess=pyt._hess,
+    #         bounds=bounds,
+    #         constraints=lc
+    #     )
+    #with warnings.catch_warnings():
+    #    warnings.simplefilter("ignore")
+        
 
 
     # bnds = Bounds(lb, ub, keep_feasible=True)

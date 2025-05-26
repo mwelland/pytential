@@ -68,6 +68,7 @@ class min_pytential(pytential):
 
             return res.fun, vars_dict
         res = [minimize_single(arr[:, i]) for i in range(arr.shape[1])]
+        
         values, vars_dicts = zip(*res)
         values = np.array(values)
         vars_dicts = list(vars_dicts)

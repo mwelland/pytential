@@ -1,9 +1,11 @@
 from sympy import pprint, Matrix, lambdify, Expr, hessian, symbols
 from .function_from_properties import function_from_properties #, sum_prefixed_variables
-from ..reduce.matrix_methods import reduce_qp, lagrange_multiplier_expr
+from ..reduce.matrix_methods import eliminate_linear_constraints
+from .operations import expand_and_replace_variable_log_variable
 from .. import pytential
 
 #TODO: #11 Have sympy_pytential able to take a list of sympy expressions and output a list of pytentials. Maybe this belongs in the pytential class directly?
+
 
 
 class sympy_pytential(pytential):
@@ -24,6 +26,8 @@ class sympy_pytential(pytential):
     def __init__(self, fcn_sym, vars= None, constraints_sym = []):
         assert isinstance(fcn_sym, Expr), "Function is not a sympy expression." 
 
+        # fcn_sym = expand_and_replace_variable_log_variable(fcn_sym)
+        # print(fcn_sym)
         # Automatically populate vars, grad, and hess
         if vars is None:
             vars_fcn =  [l.name for l in fcn_sym.free_symbols]
@@ -183,9 +187,9 @@ class sympy_pytential(pytential):
     
     def get_constraint_jacobian(self):
         """
-        Returns the jacobian of the constraints with respect to the variables
+        Returns the jacobian of the constraints with respect to the variables as a list of lists
         """
-        return Matrix(self.constraints_sym).jacobian(self.vars) 
+        return Matrix(self.constraints_sym).jacobian(self.vars).tolist()
 
     def set_variables(self, substitutions):
         """
@@ -199,7 +203,7 @@ class sympy_pytential(pytential):
 
     def quadratic_expansion(self, expansion_point):
         """
-        returns a sympy pytential that is a quadratic expansion about y0
+        returns a sympy pytential that is a quadratic expansion about the expansion point
         """
         
         hess = self.hess(**expansion_point)
@@ -233,14 +237,13 @@ class sympy_pytential(pytential):
         # x = sol[:n]
         # lambda_ = sol[n:]
 
-
-
         free_indices = [self.vars.index(var) for var in vars_to_keep]# self.vars[i] for i in vars_to_keep]
-        hess, grad, f0, lambda_linear, lambda_const = reduce_qp(B, b, A, free_indices=free_indices)
-        return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars = vars_to_keep)
+
+        hess, grad, f0, new_independent_vars_original_indices, T_map_for_reconstruction, t_offset_for_reconstruction = eliminate_linear_constraints(B, b, 0, A, None, free_indices)
+
+        vars_out = [self.vars[i] for i in new_independent_vars_original_indices.astype(int)]
+        print(vars_out)
+
+        
+        return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars = vars_out)
         #return sympy_pytential.quadratic(hess=lambda_linear, grad=lambda_const, f0=0, vars = vars_to_keep)
-
-
-        # vars_to_keep = set(vars_to_keep)
-        # constraints_sym = [c for c in self.constraints_sym if not c.free_symbols.isdisjoint(vars_to_keep)]
-        # return sympy_pytential(self.fcn_sym, constraints_sym = constraints_sym)

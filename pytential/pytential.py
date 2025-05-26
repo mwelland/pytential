@@ -21,7 +21,7 @@ def args_to_list(func):
 
     Ensures functions receive an n x p array, where n = number of variables in self.vars and p = number of points to evaluate. 
 
-    - If a single positional argument is passed, it is assumed to be an array with first dimension = number of vars.
+    - a single argument with elements in the order in self.vars
     - If keyword arguments are given, they are converted to an array in the order of self.vars.
     - Scalars in kwargs are broadcast to match the length of the longest array.
     - All arrays/lists must be of length 1 or the same length.
@@ -32,20 +32,7 @@ def args_to_list(func):
             arg_vec = np.asarray(args[0])
             arg_vec = arg_vec.reshape(len(self.vars),-1)    #Ensures the first dimension is the number of variables
         elif not args and kwargs:
-            extra_keys = set(kwargs.keys()) - set(self.vars)
-            if extra_keys:
-                raise ValueError(f"Unknown keyword arguments: {extra_keys}. Allowed: {self.vars}")
-            values = [kwargs.get(v, 0) for v in self.vars]
-            # Determine the target length for broadcasting
-            lengths = [np.size(val) for val in values]
-            target_len = max(lengths)
-            if not all(l == 1 or l == target_len for l in lengths):
-                raise ValueError(
-                    f"All arguments must be scalars or arrays of the same length. Got lengths: {lengths}"
-                )
-            # Broadcast scalars to arrays of target_len
-            broadcasted = [np.full(target_len, val) if np.size(val) == 1 else np.asarray(val) for val in values]
-            arg_vec = np.vstack(broadcasted)
+            arg_vec = self.dict_to_array(kwargs)
         else:
             raise ValueError("Only one positional argument (vector) or keyword arguments allowed.")
         return func(self, arg_vec)
@@ -109,6 +96,7 @@ class pytential:
     @args_to_list
     def fcn(self, args):
         #print('args in fcn call', args)
+        #print('args in fcn call', args)
         return self._fcn(args)
     
     @args_to_list
@@ -122,8 +110,6 @@ class pytential:
     @args_to_list
     def differential_structure(self,  *args, **kwargs):
         return self._differential_structure(*args, **kwargs)
-    
-    #**Method to evaluate gradient with certain components based on vars**
 
     def __str__(self):
         """
@@ -141,6 +127,27 @@ class pytential:
             result += 'Constraints: ' + str(self.constraints) + '\n'
     
         return result
+
+    def dict_to_array(self, dict_of_vars):
+        # Takes a dictionary of variables and returns an array according to the order of self.vars
+        extra_keys = set(dict_of_vars.keys()) - set(self.vars)
+        if extra_keys:
+            raise ValueError(f"Unknown keyword arguments: {extra_keys}. Allowed: {self.vars}")
+        values = [dict_of_vars.get(v, 0) for v in self.vars]        
+        lengths = [np.size(val) for val in values]
+        if all(l == 1 for l in lengths):
+            # All values are scalars, so we can just return a 1D array
+            return np.array(values)
+        else:
+            # # Check if all values are scalars or arrays of the same length
+            # if not all(l == 1 or l == lengths[0] for l in lengths):
+            #     raise ValueError(
+            #         f"All arguments must be scalars or arrays of the same length. Got lengths: {lengths}"
+            #     )
+            # Determine the target length for broadcasting
+            target_len = max(lengths)
+            broadcasted = [np.full(target_len, val) if np.size(val) == 1 else np.asarray(val) for val in values]
+            return np.vstack(broadcasted)
 
     def find_matching_vars(self, pattern):
         """
