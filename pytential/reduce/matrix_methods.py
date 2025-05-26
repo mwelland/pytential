@@ -3,6 +3,7 @@ import scipy.linalg as la
 from scipy.linalg import qr, solve_triangular
 
 DEFAULT_TOL = 1e-8
+RCOND_PINV = 1e-12
 
 def _check_symmetry(Q, name="Q_matrix", tol=DEFAULT_TOL):
     """Checks if a matrix Q is square and symmetric."""
@@ -29,6 +30,8 @@ def _validate_and_derive_indices(num_total_vars, priority_kept_indices):
     
     n_kept = len(priority_kept_indices)
     n_elim_cand = len(elim_candidate_indices)
+
+    assert n_kept + n_elim_cand == num_total_vars, "Index partitioning failed."
 
     return priority_kept_indices, elim_candidate_indices, n_kept, n_elim_cand
 
@@ -109,6 +112,84 @@ def _build_transformation_for_algebraic_elim(
         t_offset[elim_dep_indices] = t_dep_const
         
     return T_map, t_offset
+
+def _compute_reduced_quadratic_parameters(
+    Q_kk, Q_km, Q_mk, Q_mm, 
+    c_k_col, c_m_col, 
+    k0_full, 
+    S, t_flat):
+    """
+    Calculates the coefficients (Q_red, c_red_flat, k0_red) of the new quadratic 
+    function in terms of x_k, after substituting x_m = S @ x_k + t.
+
+    Args:
+        Q_kk (np.ndarray): Quadratic block for kept variables (n_k x n_k).
+        Q_km (np.ndarray): Quadratic cross-term block (n_k x n_m).
+        Q_mk (np.ndarray): Quadratic cross-term block (n_m x n_k), Q_km.T.
+        Q_mm (np.ndarray): Quadratic block for eliminated variables (n_m x n_m).
+        c_k_col (np.ndarray): Linear part for kept variables (n_k x 1).
+        c_m_col (np.ndarray): Linear part for eliminated variables (n_m x 1).
+        k0_full (float): Original constant term.
+        S (np.ndarray): Transformation matrix (n_m x n_k) from x_m = S @ x_k + t.
+        t_flat (np.ndarray): Transformation vector (1D, n_m) from x_m = S @ x_k + t.
+
+    Returns:
+        tuple: (Q_red, c_red_flat, k0_red)
+            Q_red (np.ndarray): New quadratic matrix for x_k.
+            c_red_flat (np.ndarray): New linear vector for x_k (1D).
+            k0_red (float): New constant term.
+    """
+    # Ensure t is a column vector for matrix operations
+    t_col = np.asarray(t_flat).reshape(-1, 1)
+
+    # Get dimensions
+    n_k = Q_kk.shape[0]
+    n_m = Q_mm.shape[0] # S.shape[0] or t_flat.shape[0] are also n_m
+
+    # --- Initialize with parts purely dependent on x_k ---
+    Q_red = Q_kk.copy() if Q_kk.size > 0 else np.zeros((n_k, n_k))
+    c_red = c_k_col.copy() if c_k_col.size > 0 else np.zeros((n_k, 1))
+    k0_red = float(k0_full)
+
+    # --- Add terms arising from the substitution x_m = S @ x_k + t ---
+    # These terms only contribute if n_m > 0 (i.e., if there were x_m variables)
+    if n_m > 0:
+        # --- Q_red terms ---
+        # Q_red = Q_kk + Q_km@S + S.T@Q_mk + S.T@Q_mm@S
+        if n_k > 0: # Cross terms with x_k only exist if n_k > 0
+            if Q_km.size > 0 and S.size > 0:  # Q_km is (n_k x n_m), S is (n_m x n_k)
+                Q_red += Q_km @ S
+            if Q_mk.size > 0 and S.size > 0:  # Q_mk is (n_m x n_k), S.T is (n_k x n_m)
+                Q_red += S.T @ Q_mk
+        
+        # S.T @ Q_mm @ S is (n_k x n_m) @ (n_m x n_m) @ (n_m x n_k) -> (n_k x n_k)
+        # This term is valid even if n_k=0 (S would be n_m x 0, Q_red is 0x0)
+        if S.size > 0 and Q_mm.size > 0: # Check S might be empty if n_k=0
+             if S.shape[1] == Q_red.shape[1]: # Ensure S is compatible with Q_red dims
+                Q_red += S.T @ Q_mm @ S
+
+        # --- c_red terms ---
+        # c_red = c_k + Q_km@t + S.T@Q_mm@t + S.T@c_m
+        if n_k > 0: # Q_km @ t results in (n_k x 1)
+            if Q_km.size > 0 and t_col.size > 0:
+                c_red += Q_km @ t_col
+        
+        # S.T @ Q_mm @ t results in (n_k x 1)
+        # S.T @ c_m results in (n_k x 1)
+        if S.size > 0: # S is (n_m x n_k), S.T is (n_k x n_m)
+            if Q_mm.size > 0 and t_col.size > 0:
+                c_red += S.T @ Q_mm @ t_col
+            if c_m_col.size > 0:
+                c_red += S.T @ c_m_col
+        
+        # --- k0_red terms ---
+        # k0_red = k0_full + c_m.T@t + 0.5 * t.T@Q_mm@t
+        if c_m_col.size > 0 and t_col.size > 0:
+            k0_red += (c_m_col.T @ t_col).item()
+        if Q_mm.size > 0 and t_col.size > 0:
+            k0_red += (0.5 * t_col.T @ Q_mm @ t_col).item()
+            
+    return Q_red, c_red.flatten(), k0_red
 
 def compute_affine_constraint_elimination_map(
     A_full, b_full, priority_kept_indices, tol=DEFAULT_TOL):
@@ -314,83 +395,89 @@ def eliminate_linear_constraints(
     return (Q_new, c_new_col.flatten(), float(k0_new), 
             new_independent_vars_original_indices, T_map, t_offset)
 
-# def reduce_unconstrained_quadratic_by_minimization(
-#     Q_uc_orig, c_uc_orig_flat, k0_uc_orig, 
-#     kept_indices_uc_relative, elim_indices_uc_relative, # Indices relative to THIS problem's variables
-#     tol=DEFAULT_TOL, rcond_pinv=RCOND_PINV):
-#     """
-#     Reduces dimensionality of an UNCONSTRAINED quadratic problem by minimizing out
-#     a subset of its variables (elim_indices_uc_relative).
-#     Q_uc_orig must be positive semidefinite.
+def reduce_unconstrained_quadratic_by_minimization(
+    Q_uc_orig, c_uc_orig_flat, k0_uc_orig, 
+    kept_indices_uc_relative, # User now only provides this
+    tol=DEFAULT_TOL, rcond_pinv=RCOND_PINV):
+    """
+    Reduces dimensionality of an UNCONSTRAINED quadratic problem by minimizing out
+    a subset of its variables. Variables not in kept_indices_uc_relative are eliminated.
+    Q_uc_orig must be positive semidefinite.
 
-#     Args:
-#         Q_uc_orig (np.ndarray): PSD quadratic matrix of the input unconstrained problem.
-#         c_uc_orig_flat (np.ndarray): Linear vector of the input problem (1D).
-#         k0_uc_orig (float): Constant term of the input problem.
-#         kept_indices_uc_relative (list/np.ndarray): Indices (0-based, relative to Q_uc_orig's
-#                                                     variables) to keep.
-#         elim_indices_uc_relative (list/np.ndarray): Indices (0-based, relative to Q_uc_orig's
-#                                                     variables) to eliminate by minimization.
-#         tol (float): Tolerance for symmetry checks and rank.
-#         rcond_pinv (float): rcond for np.linalg.pinv.
+    Args:
+        Q_uc_orig (np.ndarray): PSD quadratic matrix of the input unconstrained problem.
+        c_uc_orig_flat (np.ndarray): Linear vector of the input problem (1D).
+        k0_uc_orig (float): Constant term of the input problem.
+        kept_indices_uc_relative (list/np.ndarray): Indices (0-based, relative to 
+                                                    Q_uc_orig's variables) to keep.
+                                                    Other variables will be eliminated.
+        tol (float): Tolerance for symmetry checks and rank.
+        rcond_pinv (float): rcond for np.linalg.pinv.
 
-#     Returns:
-#         tuple: (Q_red, c_red_flat, k0_red, S_map, t_map_flat)
-#             Q_red (np.ndarray): Quadratic matrix for the new (smaller) unconstrained problem.
-#             c_red_flat (np.ndarray): Linear vector for this new problem (1D).
-#             k0_red (float): Constant term for this new problem.
-#             S_map (np.ndarray): Matrix for x_elim_opt = S_map @ x_kept + t_map (n_elim_uc x n_kept_uc).
-#             t_map_flat (np.ndarray): Vector for x_elim_opt = S_map @ x_kept + t_map (1D, n_elim_uc).
-#     """
-#     Q_uc_orig = np.asarray(Q_uc_orig)
-#     c_uc_orig_flat = np.asarray(c_uc_orig_flat).flatten()
-#     num_vars_uc = Q_uc_orig.shape[0]
+    Returns:
+        tuple: (Q_red, c_red_flat, k0_red, S_map, t_map_flat)
+            Q_red (np.ndarray): Quadratic matrix for the new (smaller) unconstrained problem.
+            c_red_flat (np.ndarray): Linear vector for this new problem (1D).
+            k0_red (float): Constant term for this new problem.
+            S_map (np.ndarray): Matrix for x_elim_opt = S_map @ x_kept + t_map (n_elim_uc x n_kept_uc).
+            t_map_flat (np.ndarray): Vector for x_elim_opt = S_map @ x_kept + t_map (1D, n_elim_uc).
+    """
+    Q_uc_orig = np.asarray(Q_uc_orig)
+    c_uc_orig_flat = np.asarray(c_uc_orig_flat).flatten()
+    num_vars_uc = Q_uc_orig.shape[0]
 
-#     if c_uc_orig_flat.shape[0] != num_vars_uc:
-#         raise ValueError(f"c_uc_orig_flat length must match Q_uc_orig dim.")
+    if c_uc_orig_flat.shape[0] != num_vars_uc:
+        raise ValueError(f"c_uc_orig_flat length ({c_uc_orig_flat.shape[0]}) "
+                         f"must match Q_uc_orig dim ({num_vars_uc}).")
 
-#     # Indices are relative to the current unconstrained problem
-#     kept_indices_uc_rel, elim_indices_uc_rel, n_k_uc, n_m_uc = _validate_and_partition_indices(
-#         num_vars_uc, kept_indices_uc_relative, elim_indices_uc_relative
-#     )
-#     _check_symmetry(Q_uc_orig, name="Q_uc_orig", tol=tol)
+    # Derive elimination indices from kept_indices
+    # The indices here are relative to the variables of THIS unconstrained problem
+    kept_idx_final, elim_idx_derived, n_k_uc, n_m_uc = _validate_and_derive_indices(
+        num_vars_uc, kept_indices_uc_relative
+    )
+    _check_symmetry(Q_uc_orig, name="Q_uc_orig", tol=tol)
 
-#     # Partition Q_uc_orig and c_uc_orig_flat based on relative kept/elim indices
-#     # Pass dummy empty A as it's not used for S,t calculation in this path
-#     empty_A_placeholder = np.empty((0, num_vars_uc))
-#     # Need to use a general partitioner here as well
-#     # Reusing _partition_problem_matrices_for_elim_constraints logic for partitioning Q,c
-#     # It takes full Q, c, empty A, then relative kept/elim indices
+    # Partition Q_uc_orig and c_uc_orig_flat based on derived kept/elim indices
+    empty_A_placeholder = np.empty((0, num_vars_uc)) 
+    Q_kk, Q_km, Q_mk, Q_mm, \
+    c_k_col, c_m_col, \
+    _A_k_dummy, _A_m_dummy = _partition_problem_matrices_for_elim_constraints( # Reusing helper
+        Q_uc_orig, c_uc_orig_flat, empty_A_placeholder, 
+        kept_idx_final, elim_idx_derived, n_k_uc, n_m_uc
+    )
+
+    if n_m_uc == 0: # No variables to eliminate by minimization
+        return Q_kk, c_k_col.flatten(), float(k0_uc_orig), np.empty((0,n_k_uc)), np.empty(0)
     
-#     Q_kk, Q_km, Q_mk, Q_mm, \
-#     c_k_col, c_m_col, \
-#     _A_k_dummy, _A_m_dummy = _partition_problem_matrices_for_elim_constraints( 
-#         Q_uc_orig, c_uc_orig_flat, empty_A_placeholder, 
-#         kept_indices_uc_rel, elim_indices_uc_rel, n_k_uc, n_m_uc
-#     )
-
-
-#     if n_m_uc == 0: # No variables to eliminate by minimization
-#         return Q_kk, c_k_col.flatten(), float(k0_uc_orig), np.empty((0,n_k_uc)), np.empty(0)
+    # For unconstrained elimination, optimal x_m_uc solves Q_mm @ x_m_uc = -Q_mk @ x_k_uc - c_m_uc
+    # Thus, x_m_uc_opt = -Q_mm_pinv @ (Q_mk @ x_k_uc + c_m_col)
+    # So, S_map = -Q_mm_pinv @ Q_mk
+    #     t_map = -Q_mm_pinv @ c_m_col
     
-#     Q_mm_pinv = np.linalg.pinv(Q_mm, rcond=rcond_pinv) 
+    Q_mm_pinv = np.linalg.pinv(Q_mm, rcond=rcond_pinv) # n_m_uc x n_m_uc
 
-#     rank_Q_mm = np.linalg.matrix_rank(Q_mm, tol=tol)
-#     if rank_Q_mm < n_m_uc:
-#         # This warning is important: the S_map, t_map give one specific optimal x_elim
-#         print(f"Warning: Q_mm in unconstrained reduction was rank-deficient (rank {rank_Q_mm}/{n_m_uc}). "
-#               "Pseudo-inverse used; S_map and t_map define a specific (e.g., min norm) optimal x_elim_uc.")
+    # Optional: Warn if Q_mm was rank deficient (handled by pinv, but good for user awareness)
+    rank_Q_mm = np.linalg.matrix_rank(Q_mm, tol=tol)
+    if rank_Q_mm < n_m_uc:
+        print(f"Warning: Q_mm in unconstrained reduction was rank-deficient (rank {rank_Q_mm}/{n_m_uc}). "
+              "Pseudo-inverse used; S_map and t_map define a specific (e.g., min norm) optimal x_elim_uc.")
 
-#     # x_m_uc_opt = -Q_mm_pinv @ (Q_mk @ x_k_uc + c_m_col)
-#     S_map_final = -Q_mm_pinv @ Q_mk if (Q_mk.size > 0 and Q_mm_pinv.size > 0) else np.zeros((n_m_uc, n_k_uc))
-#     t_map_flat_final = -(Q_mm_pinv @ c_m_col).flatten() if (c_m_col.size > 0 and Q_mm_pinv.size > 0) else np.zeros(n_m_uc)
+    # Handle potentially empty Q_mk or c_m_col if n_k_uc=0 or if values are zero
+    S_map_final = np.zeros((n_m_uc, n_k_uc))
+    if Q_mk.size > 0 and Q_mm_pinv.size > 0:
+        S_map_final = -Q_mm_pinv @ Q_mk
     
-#     # Calculate new reduced quadratic parameters using the standard substitution formulas
-#     Q_red_final, c_red_final_flat, k0_red_final = _compute_reduced_quadratic_parameters(
-#         Q_kk, Q_km, Q_mk, Q_mm, c_k_col, c_m_col, k0_uc_orig, S_map_final, t_map_flat_final
-#     )
+    t_map_flat_final = np.zeros(n_m_uc)
+    if c_m_col.size > 0 and Q_mm_pinv.size > 0:
+        t_map_flat_final = -(Q_mm_pinv @ c_m_col).flatten()
     
-#     return Q_red_final, c_red_final_flat, k0_red_final, S_map_final, t_map_flat_final
+    # Calculate new reduced quadratic parameters using the standard substitution formulas
+    # _compute_reduced_quadratic_parameters(Q_kk, Q_km, Q_mk, Q_mm, c_k_col, c_m_col, k0_uc_orig, S, t_flat)
+    Q_red_final, c_red_final_flat, k0_red_final = _compute_reduced_quadratic_parameters(
+        Q_kk, Q_km, Q_mk, Q_mm, c_k_col, c_m_col, k0_uc_orig, S_map_final, t_map_flat_final
+    )
+    
+    return Q_red_final, c_red_final_flat, k0_red_final, S_map_final, t_map_flat_final
 
 
 

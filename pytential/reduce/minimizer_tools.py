@@ -21,7 +21,7 @@ def minimize_pytential(pyt):
     
     linear_constraint = LinearConstraint(A, -b, -b)
     
-    bounds = Bounds([1e-5]*n, [inf]*n, keep_feasible=True)
+    bounds = Bounds([1e-6]*n, [inf]*n, keep_feasible=True)
 
     x0 = np.linalg.lstsq(A, -b, rcond=None)[0].flatten()
     x0 = np.clip(x0, bounds.lb, bounds.ub)
@@ -36,7 +36,8 @@ def minimize_pytential(pyt):
             jac=pyt._grad,
             hess=pyt._hess,
             bounds=bounds,
-            constraints=linear_constraint#pyt_constraints
+            constraints=linear_constraint, #pyt_constraints,
+            #options={'trust_region_tol': 1e-8}  # Adjust trust_region_tol here
         )
     
 
