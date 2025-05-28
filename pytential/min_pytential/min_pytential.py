@@ -67,11 +67,17 @@ class min_pytential(pytential):
             vars_dict = {**restriction_vars_dict, **optimized_vars_dict}
 
             return res.fun, vars_dict
-        res = [minimize_single(arr[:, i]) for i in range(arr.shape[1])]
         
-        values, vars_dicts = zip(*res)
-        values = np.array(values)
-        vars_dicts = list(vars_dicts)
+        if arr.ndim == 1:
+            # If arr is 1D, treat it as a single column
+            values, vars_dicts = minimize_single(arr)
+        else:
+            # If arr is 2D, iterate over columns
+            res = [minimize_single(arr[:, i]) for i in range(arr.shape[1])]
+            values, vars_dicts = zip(*res)
+            values = np.array(values)
+            # vars_dicts = list(vars_dicts)
+        
         return values, vars_dicts
 
 

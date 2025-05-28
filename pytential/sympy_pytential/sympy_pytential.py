@@ -1,6 +1,6 @@
 from sympy import pprint, Matrix, lambdify, Expr, hessian, symbols
 from .function_from_properties import function_from_properties #, sum_prefixed_variables
-from ..reduce.matrix_methods import eliminate_linear_constraints
+#from ..quadratic_pytential.matrix_methods import eliminate_linear_constraints
 from .operations import expand_and_replace_variable_log_variable
 from .. import pytential
 
@@ -74,25 +74,7 @@ class sympy_pytential(pytential):
         
     #     return pyt
 
-    
-    @classmethod
-    def quadratic(cls, hess, grad, f0, vars, constraints_sym=[]):
-        """
-        Create a quadratic expansion of a pytential given a Hessian matrix, gradient vector, and function value.
-        """
-        x = Matrix(symbols(vars))
-        Q = Matrix(hess)
-        b = Matrix(grad)
-        fcn = 1/2 * (x.T * Q * x)[0, 0] + b.dot(x) + f0
-        return sympy_pytential(fcn, vars=vars, constraints_sym=constraints_sym)
-    
-    
-    # @classmethod
-    # def sum_extensive_variables(cls, pyt, prefix):
-    #     constraints_sym = sum_prefixed_variables(pyt.vars, prefix) 
-    #     return sympy_pytential(pyt.fcn_sym, constraints_sym = pyt.constraints_sym + constraints_sym)
-
-        
+       
     def pprint(self):
         """
         Pretty print the pytential and its gradients as sympy expressions - looks funny in jupyter?
@@ -201,49 +183,14 @@ class sympy_pytential(pytential):
         
         return sympy_pytential(self.fcn_sym.subs(substitutions), constraints_sym = [c.subs(substitutions) for c in self.constraints_sym])
 
-    def quadratic_expansion(self, expansion_point):
-        """
-        returns a sympy pytential that is a quadratic expansion about the expansion point
-        """
+    # def quadratic_expansion(self, expansion_point):
+    #     """
+    #     returns a sympy pytential that is a quadratic expansion about the expansion point
+    #     """
         
-        hess = self.hess(**expansion_point)
-        grad = self.grad(**expansion_point)
-        f0 = self.fcn(**expansion_point)
+    #     hess = self.hess(**expansion_point)
+    #     grad = self.grad(**expansion_point)
+    #     f0 = self.fcn(**expansion_point)
 
-        #TODO: Check that the expansion point is an equilibrium point based on equality of grad components (matched by variables?)
-        return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars=self.vars, constraints_sym = self.constraints_sym)
-
-
-    def remove_linear_constraints(self, vars_to_keep, y0):
-        """
-        Removes linear constraints through nullspace projection.
-        Currently only implemented for quadratic potentials.
-        """
-
-        # TODO: Shouldn't need y0
-        #TODO: carry forward any remaining constraints
-        B = self.hess(**y0)
-        b = self.grad(**y0)
-        A = self.get_constraint_jacobian()
-        
-        # n = Q.shape[0]
-        # m = A.shape[0]
-
-        # # Form the bordered system:
-        # KKT = np.block([[Q, A.T],
-        #         [A, np.zeros((m, m))]])
-        # rhs = -np.concatenate([c, -b])
-        # sol = la.solve(KKT, rhs)
-        # x = sol[:n]
-        # lambda_ = sol[n:]
-
-        free_indices = [self.vars.index(var) for var in vars_to_keep]# self.vars[i] for i in vars_to_keep]
-
-        hess, grad, f0, new_independent_vars_original_indices, T_map_for_reconstruction, t_offset_for_reconstruction = eliminate_linear_constraints(B, b, 0, A, None, free_indices)
-
-        vars_out = [self.vars[i] for i in new_independent_vars_original_indices.astype(int)]
-        print(vars_out)
-
-        
-        return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars = vars_out)
-        #return sympy_pytential.quadratic(hess=lambda_linear, grad=lambda_const, f0=0, vars = vars_to_keep)
+    #     #TODO: Check that the expansion point is an equilibrium point based on equality of grad components (matched by variables?)
+    #     return sympy_pytential.quadratic(hess=hess, grad=grad, f0=f0, vars=self.vars, constraints_sym = self.constraints_sym)

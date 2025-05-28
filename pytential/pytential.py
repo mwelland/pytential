@@ -128,11 +128,20 @@ class pytential:
     
         return result
 
-    def dict_to_array(self, dict_of_vars):
+    def dict_to_array(self, dict_of_vars, check_extra_keys=False):
+        """
         # Takes a dictionary of variables and returns an array according to the order of self.vars
-        extra_keys = set(dict_of_vars.keys()) - set(self.vars)
-        if extra_keys:
-            raise ValueError(f"Unknown keyword arguments: {extra_keys}. Allowed: {self.vars}")
+        """
+        if check_extra_keys:
+            extra_keys = set(dict_of_vars.keys()) - set(self.vars)
+            if extra_keys:
+                raise ValueError(f"Unknown keyword arguments: {extra_keys}. Allowed: {self.vars}")
+        
+        # Check if all variables have been assigned a value
+        missing_vars = set(self.vars) - set(dict_of_vars.keys())
+        if missing_vars:
+            raise ValueError(f"Missing values for variables: {missing_vars}.  Must provide values for all of: {self.vars}")
+        
         values = [dict_of_vars.get(v, 0) for v in self.vars]        
         lengths = [np.size(val) for val in values]
         if all(l == 1 for l in lengths):
@@ -148,7 +157,7 @@ class pytential:
             target_len = max(lengths)
             broadcasted = [np.full(target_len, val) if np.size(val) == 1 else np.asarray(val) for val in values]
             return np.vstack(broadcasted)
-
+        
     def find_matching_vars(self, pattern):
         """
         Class method for finding variables in a list of variables that match a pattern
@@ -166,22 +175,21 @@ class pytential:
         print("Not implemented. Overridden by sympy_pytential")
         pass
     
-    def write_to_file(self, file_name):
-        if not file_name.endswith('.pkl'):
-            file_name += '.pkl'
-        with open(file_name, 'wb') as output:
-             pickle.dump(self, output)
+    def get_constraint_matrix_and_vector(self):
+        """
+        Computes the constraint matrix (Jacobian) and constants
+        Ax=b
 
-    def read_potential(name):
-        print('hi', name)
-        if not name.endswith('.pkl'):
-            name += '.pkl'
-        with open(name, 'rb') as input:
-            pot = pickle.load(input)
+        Returns:
+            tuple: (matrix, constants)
+                - matrix: A 2D NumPy array where each row is the vector from a constraint.
+                - constants: A 1D NumPy array of constants from each constraint.
+        """
+        n = len(self.vars)
         matrix = []
         constants = []
 
-        for fcn in constraints:
+        for fcn in self.constraints:
             # Compute the constant and vector for the current constraint
             constant = fcn(np.zeros((n, 1)))
             line = fcn(np.identity(n)) - constant
@@ -194,7 +202,21 @@ class pytential:
         matrix = np.array(matrix)
         constants = np.array(constants)
 
-        return matrix, constants
+        return matrix, -constants
+
+    def write_to_file(self, file_name):
+        if not file_name.endswith('.pkl'):
+            file_name += '.pkl'
+        with open(file_name, 'wb') as output:
+             pickle.dump(self, output)
+
+    def read_potential(name):
+        print('hi', name)
+        if not name.endswith('.pkl'):
+            name += '.pkl'
+        with open(name, 'rb') as input:
+            pot = pickle.load(input)
+
     #         # Handling mpi distribution: Potentials are loaded by all ranks, but are built on one rank.
     #         # Not ideal since it implies copies of potentials everywhere. Better to centralize...?
 

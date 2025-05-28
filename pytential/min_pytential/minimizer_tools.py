@@ -1,6 +1,6 @@
-from scipy.optimize import minimize, NonlinearConstraint, LinearConstraint, Bounds
+from scipy.optimize import minimize, NonlinearConstraint, LinearConstraint, Bounds, shgo
 from numpy import inf
-from .matrix_methods import get_constraints_matrix_and_vector
+#from ..quadratic_pytential.matrix_methods import get_constraints_matrix_and_vector
 import numpy as np
 import warnings
 
@@ -15,31 +15,52 @@ def minimize_pytential(pyt):
     pyt_constraints = [NonlinearConstraint(c, 0, 0, hess = zero_hess) 
                         for c in pyt.constraints]
     
-    A,b = get_constraints_matrix_and_vector(pyt.constraints, len(pyt.vars))
+    A,b = pyt.get_constraint_matrix_and_vector()# get_constraints_matrix_and_vector(pyt.constraints, len(pyt.vars))
 
     b = np.atleast_1d(b).flatten()  # Ensure b is 1D
     
     linear_constraint = LinearConstraint(A, -b, -b)
     
     bounds = Bounds([1e-6]*n, [inf]*n, keep_feasible=True)
+    #bounds = Bounds([1e-3]*n, [1]*n, keep_feasible=True)
 
     x0 = np.linalg.lstsq(A, -b, rcond=None)[0].flatten()
     x0 = np.clip(x0, bounds.lb, bounds.ub)
 
+    def safe_objective(x):
+        """Objective function wrapper to handle log domain errors."""
+        #x = np.clip(x, bounds.lb, bounds.ub)  # Ensure x is within bounds
+        return pyt._fcn(x)
 
+    def safe_gradient(x):
+        return pyt._grad(x)
+        
+    def safe_hessian(x):
+        return pyt._hess(x)
+       
     # TODO: #14 Get a global minimizer working here? Issues with constraints...?
 
+    # res = minimize(
+    #         safe_objective,
+    #         x0,
+    #         method='trust-constr',
+    #         jac=safe_gradient,
+    #         hess=safe_hessian,
+    #         bounds=bounds,
+    #         constraints=linear_constraint, #pyt_constraints,
+    #         #options={'trust_region_tol': 1e-8}  # Adjust trust_region_tol here
+    #     )
+    
     res = minimize(
             pyt._fcn,
             x0,
-            method='trust-constr',
+            method='SLSQP',
             jac=pyt._grad,
-            hess=pyt._hess,
             bounds=bounds,
-            constraints=linear_constraint, #pyt_constraints,
-            #options={'trust_region_tol': 1e-8}  # Adjust trust_region_tol here
-        )
-    
+            constraints=lc
+    )
+
+
 
     # with warnings.catch_warnings():
     #     warnings.simplefilter("ignore")
@@ -47,13 +68,12 @@ def minimize_pytential(pyt):
     #         pyt._fcn,
     #         x0,
     #         method='SLSQP',
-    #         # method='trust-constr',
     #         jac=pyt._grad,
-    #         #hess=pyt._hess,
+    #         hess=pyt._hess,
     #         bounds=bounds,
     #         constraints=lc
     #     )
-    #with warnings.catch_warnings():
+    # with warnings.catch_warnings():
     #    warnings.simplefilter("ignore")
         
 
