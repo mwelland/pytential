@@ -157,7 +157,19 @@ class pytential:
             target_len = max(lengths)
             broadcasted = [np.full(target_len, val) if np.size(val) == 1 else np.asarray(val) for val in values]
             return np.vstack(broadcasted)
-        
+    
+    def vars_to_indices(self, vars_to_find):
+        """
+        Returns the indices of the variables in self.vars that match vars_to_find
+
+        Args:
+            vars_to_find (list): A list of variable names to find in self.vars
+
+        Returns:
+            list: A list of indices corresponding to vars_to_find in self.vars
+        """
+        return [self.vars.index(v) for v in vars_to_find if v in self.vars]
+    
     def find_matching_vars(self, pattern):
         """
         Class method for finding variables in a list of variables that match a pattern

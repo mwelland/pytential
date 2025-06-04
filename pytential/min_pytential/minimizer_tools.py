@@ -6,37 +6,50 @@ import warnings
 
 def minimize_pytential(pyt):
     # Minimizes the pytential over all free variables subject to the constraints
-    nlc = [NonlinearConstraint(c, 0, 0) for c in pyt.constraints]
+    # nlc = [NonlinearConstraint(c, 0, 0) for c in pyt.constraints]
     lc = ({'type': 'eq', 'fun': c} for c in pyt.constraints)
     
     n = len(pyt.vars)
     def zero_hess(x,v): return np.zeros((n, n))
     
-    pyt_constraints = [NonlinearConstraint(c, 0, 0, hess = zero_hess) 
-                        for c in pyt.constraints]
+    # pyt_constraints = [NonlinearConstraint(c, 0, 0, hess = zero_hess) 
+    #                     for c in pyt.constraints]
     
     A,b = pyt.get_constraint_matrix_and_vector()# get_constraints_matrix_and_vector(pyt.constraints, len(pyt.vars))
-
+    
     b = np.atleast_1d(b).flatten()  # Ensure b is 1D
-    
-    linear_constraint = LinearConstraint(A, -b, -b)
-    
     bounds = Bounds([1e-6]*n, [inf]*n, keep_feasible=True)
-    #bounds = Bounds([1e-3]*n, [1]*n, keep_feasible=True)
+    
+    if A.size > 0:
+        linear_constraint = LinearConstraint(A, -b, -b)
+        x0 = np.linalg.lstsq(A, -b, rcond=None)[0].flatten()
+        x0 = np.clip(x0, bounds.lb, bounds.ub)
+    else:
+        linear_constraint = None
+        x0 = np.array([.5]*n)  # Default starting point if no constraints
+      
+    
 
-    x0 = np.linalg.lstsq(A, -b, rcond=None)[0].flatten()
-    x0 = np.clip(x0, bounds.lb, bounds.ub)
+
+    
 
     def safe_objective(x):
         """Objective function wrapper to handle log domain errors."""
-        #x = np.clip(x, bounds.lb, bounds.ub)  # Ensure x is within bounds
-        return pyt._fcn(x)
-
-    def safe_gradient(x):
-        return pyt._grad(x)
+        if np.all(x > 0):
+            return pyt._fcn(x)
+        else:
+            return np.inf
         
-    def safe_hessian(x):
-        return pyt._hess(x)
+    
+    def safe_gradient(x):
+        if np.all(x > 0):
+            return pyt._grad(x)
+        else:
+            return np.inf*x
+        
+        
+    # def safe_hessian(x):
+    #     return pyt._hess(x)
        
     # TODO: #14 Get a global minimizer working here? Issues with constraints...?
 
@@ -50,6 +63,16 @@ def minimize_pytential(pyt):
     #         constraints=linear_constraint, #pyt_constraints,
     #         #options={'trust_region_tol': 1e-8}  # Adjust trust_region_tol here
     #     )
+
+
+    # res = shgo(
+    #     func=safe_objective,
+    #     #jac=safe_gradient, # Pass the Jacobian function here
+    #     bounds=bounds,
+    #     constraints=lc,
+    #     #options={'disp': False} # Set to True for more output
+
+
     
     res = minimize(
             pyt._fcn,

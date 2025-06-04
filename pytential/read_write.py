@@ -10,9 +10,9 @@ def write_pytential(pytential, file_name):
         dill.dump(pytential, output)
 
 def read_pytential(file_name):
-    if not name.endswith('.pkl'):
-        name += '.pkl'
-    with open(name, 'rb') as input:
+    if not file_name.endswith('.pkl'):
+        file_name += '.pkl'
+    with open(file_name, 'rb') as input:
          pytential = dill.load(input)
     return pytential
 

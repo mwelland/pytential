@@ -1,5 +1,6 @@
 from sympy import pprint, Matrix, lambdify, Expr, hessian, symbols
 from .matrix_methods import eliminate_linear_constraints, reduce_unconstrained_quadratic_by_minimization
+from .convex_conj import get_partial_convex_conjugate_quad_params
 from ..sympy_pytential import sympy_pytential
 
 class quad_pytential(sympy_pytential):
@@ -57,6 +58,27 @@ class quad_pytential(sympy_pytential):
                                 vars=pyt.vars,
                                 constraints_sym=pyt.constraints_sym)
     
+    @classmethod
+    def from_sympy(cls, fcn_sym, vars=None, constraints_sym = []):
+        """
+        Creates a quadratic pytential from a sympy expression.
+        Args:
+            fcn: sympy expression representing the quadratic pytential
+            vars: list of variable names as strings
+            constraints_sym: list of sympy expressions representing constraints
+        """
+        if vars is None:
+            vars_fcn =  [l.name for l in fcn_sym.free_symbols]
+            vars_constraints = [l.name for c in constraints_sym for l in c.free_symbols]
+            vars = sorted(list(set(vars_fcn + vars_constraints)))
+
+        v = symbols(vars)
+        hess_matrix = hessian(fcn_sym, v).tolist()
+        b_vector = [fcn_sym.diff(var).subs({var: 0 for var in v}) for var in v]
+
+        f0 = fcn_sym.subs({var: 0 for var in v})
+
+        return cls(f0=f0, b=b_vector, Q=hess_matrix, vars=vars, constraints_sym=constraints_sym)
 
     def hess(self, *args, **kwargs):
         return self._hess # Return the stored Hessian matrix
@@ -112,4 +134,30 @@ class quad_pytential(sympy_pytential):
         #     print(f"Eigenvector: {eigenvectors[i][0]}")  # Access the eigenvector
         #     print("-" * 20)
 
+    def transform_to_cc_in(self, var_name_map):
+        """
+        Transforms the quadratic pytential to its partial convex conjugate with respect to specified variables.
+        
+        Args:
+            var_name_map: dictionary mapping original variable names to new variable names for the conjugate variables.
+                           e.g., {'x': 'xt', 'y': 'yt'} would conjugate with respect to 'x' and 'y',
+                           renaming them to 'xt' and 'yt' respectively.
+        
+        Returns:
+            quad_pytential: The transformed quadratic pytential in the conjugate variables.
+        """
 
+        vars_to_transform = list(var_name_map.keys())
+        conj_indices = self.vars_to_indices(vars_to_transform)
+        M, N, P, A_cond, c_cond, ordered_conj_indices, ordered_param_indices = get_partial_convex_conjugate_quad_params(
+            self._hess, self.b, self.f0, conj_indices
+        )
+
+        new_vars = []
+        for i in ordered_conj_indices:
+            new_vars.append(var_name_map[self.vars[i]])
+            #new_vars.append(self.vars[i]+'t')
+        for i in ordered_param_indices:
+            new_vars.append(self.vars[i])
+ 
+        return quad_pytential(f0=P, b=N, Q=M, vars=new_vars)
